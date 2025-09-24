@@ -26,15 +26,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 8
-					   
-								 
-
-						  
-								 
-		   
-							
-					   
-	
+          
       - name: Build with Maven
         run: mvn -B package --file pom.xml --settings .maven/settings.xml
 
@@ -68,7 +60,6 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: artifacts
-
 	
       - name: Deploy to Sandbox
         run: |
