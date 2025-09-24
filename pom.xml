@@ -94,11 +94,11 @@
 	<distributionManagement>
   <repository>
     <id>anypoint-exchange</id>
-    <url>https://maven.anypoint.mulesoft.com/api/v4/organizations/${project.groupId}/maven</url>
+    <url>https://maven.anypoint.mulesoft.com/api/v1/organizations/${project.groupId}/maven</url>
   </repository>
   <snapshotRepository>
     <id>anypoint-exchange</id>
-    <url>https://maven.anypoint.mulesoft.com/api/v4/organizations/${project.groupId}/maven</url>
+    <url>https://maven.anypoint.mulesoft.com/api/v1/organizations/${project.groupId}/maven</url>
   </snapshotRepository>
 </distributionManagement>
 </project>
