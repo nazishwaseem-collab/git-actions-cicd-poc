@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="7125db27-36d7-46e1-939a-8f929ffedec6" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="git-actions-pocFlow" doc:id="6359eaf2-39be-46c8-a301-9f8ffcc84412" >
+		<http:listener doc:name="Listener" doc:id="2078b7c9-57a2-4da2-85cd-461561e60d3b" config-ref="HTTP_Listener_config" path="/test"/>
+		<logger level="INFO" doc:name="Start Logger" doc:id="142b0dd6-1b50-4081-8a54-cfe8a7eedd1a" message='#["test-flow-started"]'/>
+		<ee:transform doc:name="DW Set Response" doc:id="e312ad66-2734-423d-965f-7c022ee5ee8c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"status" : "successfull"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="End Logger" doc:id="b06b0749-a4c2-46ba-9342-ad0ce665598a" message='#["test-flow-completed"]'/>
+	</flow>
+</mule>
