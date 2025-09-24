@@ -45,7 +45,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-	
       - name: Checkout this repo
         uses: actions/checkout@v4
 
@@ -60,14 +59,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: artifacts
-	
       - name: Deploy to Sandbox
         run: |
           artifactName=$(ls *.jar | head -1)
           mvn deploy --settings .maven/settings.xml -DskipMunitTests \
             -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" \
             -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"
-
-		 
-		 
-	
