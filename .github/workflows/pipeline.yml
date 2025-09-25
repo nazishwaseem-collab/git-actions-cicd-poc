@@ -67,7 +67,6 @@ jobs:
       CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
 
     steps:
-	
       - uses: actions/checkout@v4
 
       - uses: actions/cache@v4
@@ -104,7 +103,6 @@ jobs:
       CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
 
     steps:
-	
       - uses: actions/checkout@v4
 
       - uses: actions/cache@v4
@@ -128,5 +126,3 @@ jobs:
             -DskipMunitTests \
             -Dclient.id="${CONNECTED_APP_CLIENT_ID}" \
             -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
-
-					
