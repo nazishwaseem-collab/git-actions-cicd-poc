@@ -77,9 +77,10 @@ jobs:
     - name: Upload to Exchange
       run: |
         artifactName=$(ls *.jar | head -1)
-        mvn deploy \
-         -s .maven/settings.xml \
-         -Dmule.artifact=$artifactName \
+        mvn deploy --settings .maven/settings.xml -DskipMunitTests \
+          -Dmule.artifact=$artifactName \
+          -Dclient.id=$client.id \
+          -Dclient.secret=$client.secret \
        
     
  
@@ -111,5 +112,7 @@ jobs:
         artifactName=$(ls *.jar | head -1)
         mvn deploy -DmuleDeploy \
          -Dmule.artifact=$artifactName \
+          -Dclient.id=$client.id \
+          -Dclient.secret=$client.secret \
          -s .maven/settings.xml \
          -DskipTests
