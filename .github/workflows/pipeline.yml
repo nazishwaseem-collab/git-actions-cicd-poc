@@ -90,10 +90,8 @@ jobs:
 
       # Publish to Exchange via distributionManagement (server id = Repository)
       - name: Upload to Exchange
-        run: |
-          mvn -B deploy -s .maven/settings.xml -DskipMunitTests \	
-            -Dclient.id="${CONNECTED_APP_CLIENT_ID}" \
-            -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
+        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
+		
 
   deploy:
     needs: upload
@@ -118,11 +116,4 @@ jobs:
           path: .
 
       - name: Deploy to Sandbox (CloudHub 2.0)
-        run: |
-          echo "Found artifact(s):"
-          ls -l *.jar
-          mvn -B -s .maven/settings.xml \
-            -DmuleDeploy \
-            -DskipMunitTests \
-            -Dclient.id="${CONNECTED_APP_CLIENT_ID}" \
-            -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
+        run: mvn -B -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
