@@ -2,6 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
+								  
 	<groupId>ed6db8fe-fb50-4895-b773-ea82ad95798c</groupId>
 	<artifactId>git-actions-poc</artifactId>
 	<version>1.0.0</version>
@@ -12,8 +13,7 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-
-		<app.runtime>4.9.0</app.runtime>
+		<app.runtime>4.9.0</app.runtime>										   
 		<mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
 	</properties>
 
@@ -35,7 +35,8 @@
 						<provider>MC</provider>
 						<environment>Sandbox</environment>
 						<target>Cloudhub-US-East-2</target>
-						<muleVersion>4.4.0</muleVersion>
+						<muleVersion>>${app.runtime}</muleVersion>
+																	 
 						<server>Repository</server>
 						<applicationName>${project.artifactId}</applicationName>
 						<replicas>1</replicas>
@@ -70,6 +71,7 @@
 	</dependencies>
 
 	<repositories>
+											  
 	<repository>
 			<id>anypoint-exchange-v3</id>
 			<name>Anypoint Exchange</name>
@@ -101,6 +103,8 @@
 			</snapshots>
 		</pluginRepository>
 	</pluginRepositories>
+
+																  
 	<distributionManagement>
     <repository>
         <id>Repository</id>
@@ -108,5 +112,9 @@
         <url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${project.groupId}/maven</url>
         <layout>default</layout>
     </repository>
+						
+						 
+																								  
+						 
 </distributionManagement>
 </project>
