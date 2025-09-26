@@ -16,7 +16,6 @@
     <profile>
       <id>mulesoft</id>
       <repositories>
-        <repository>
           <repository>
           <id>anypoint-exchange-v3</id>
           <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
