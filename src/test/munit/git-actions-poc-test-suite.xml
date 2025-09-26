@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xsi:schemaLocation="
+		http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+	<munit:config name="git-actions-poc-test-suite.xml" />
+	<munit:test name="git-actions-poc-test-suite-git-actions-pocFlowTest" doc:id="72641014-2850-4073-a017-5becbe66eb8a" description="Test" ignore="true">
+		<munit:behavior >
+			<flow-ref doc:name="Flow Reference" doc:id="dd7ec05e-f13b-4b13-8fbc-8378f44f0d6a" name="git-actions-pocFlow"/>
+		</munit:behavior>
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to git-actions-pocFlow" doc:id="6f13595f-1ba0-4b34-9978-6e05f0130cc3" name="git-actions-pocFlow"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert-that doc:name="Assert that" doc:id="e8e01a8f-eed5-4483-8381-601d34ddf88d" expression="#[payload]" is="#[MunitTools::notNullValue()]"/>
+		</munit:validation>
+	</munit:test>
+
+
+</mule>

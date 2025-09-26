@@ -65,6 +65,7 @@ jobs:
     env:
       CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      KEY: ${{ secrets.decryption_key }}
 
     steps:
       - uses: actions/checkout@v4
@@ -90,13 +91,14 @@ jobs:
 
       # Publish to Exchange via distributionManagement (server id = Repository)
       - name: Upload to Exchange
-        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
+        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET} -Ddecryption.key="$KEY"
   deploy:
     needs: upload
     runs-on: ubuntu-latest
     env:
       CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      KEY: ${{ secrets.decryption_key }}
 
     steps:
       - uses: actions/checkout@v4
@@ -114,4 +116,4 @@ jobs:
           path: .
 
       - name: Deploy to Sandbox (CloudHub 2.0)
-        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
+        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET} -Ddecryption.key="$KEY"
