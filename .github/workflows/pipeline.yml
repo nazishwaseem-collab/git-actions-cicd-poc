@@ -33,7 +33,8 @@ jobs:
       # Give this run a unique version so Exchange doesn't reject duplicates
       - name: Set CI version (unique per run)
         run: |
-          NEW_VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
           echo "Using version: ${NEW_VERSION}"
 
@@ -85,13 +86,15 @@ jobs:
       # Ensure the same unique version is set in this job too (matches build job)
       - name: Set CI version (unique per run)
         run: |
-          NEW_VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
           echo "Using version: ${NEW_VERSION}"
 
       # Publish to Exchange via distributionManagement (server id = Repository)
       - name: Upload to Exchange
         run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}" -Ddecryption.key="$KEY"
+
   deploy:
     needs: upload
     runs-on: ubuntu-latest
