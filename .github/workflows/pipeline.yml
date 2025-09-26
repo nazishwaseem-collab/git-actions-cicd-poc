@@ -91,7 +91,7 @@ jobs:
 
       # Publish to Exchange via distributionManagement (server id = Repository)
       - name: Upload to Exchange
-        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET} -Ddecryption.key="$KEY"
+        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}" -Ddecryption.key="$KEY"
   deploy:
     needs: upload
     runs-on: ubuntu-latest
@@ -116,4 +116,4 @@ jobs:
           path: .
 
       - name: Deploy to Sandbox (CloudHub 2.0)
-        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET} -Ddecryption.key="$KEY"
+        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}" -Ddecryption.key="$KEY"
