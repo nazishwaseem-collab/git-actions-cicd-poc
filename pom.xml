@@ -71,11 +71,12 @@
 				</executions>
 				<configuration>
   					<muleVersion>${app.runtime}</muleVersion>
+  					 <skipEmbeddedRuntime>true</skipEmbeddedRuntime>
   					<coverage>
 				    <runCoverage>true</runCoverage>
 				    <formats>
 				      <format>html</format>
-				    </formats>
+				    </formats> 
 				  </coverage>
 				</configuration>
 			</plugin>
