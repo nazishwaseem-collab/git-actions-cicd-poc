@@ -17,20 +17,26 @@
       <id>mulesoft</id>
       <repositories>
         <repository>
-          <id>anypoint-exchange-v3</id>
-          <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+          <id>mulesoft-releases</id>
+          <url>https://repository.mulesoft.org/nexus/content/repositories/releases/</url>
         </repository>
         <repository>
-          <id>mulesoft-releases</id>
-          <url>https://repository.mulesoft.org/releases/</url>
+          <id>mulesoft-snapshots</id>
+          <url>https://repository.mulesoft.org/nexus/content/repositories/snapshots/</url>
+          <releases>
+            <enabled>false</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
         </repository>
       </repositories>
       <pluginRepositories>
         <pluginRepository>
           <id>mulesoft-releases</id>
-          <url>https://repository.mulesoft.org/releases/</url>
+          <url>https://repository.mulesoft.org/nexus/content/repositories/releases/</url>
         </pluginRepository>
-      </pluginRepositories>
+      </pluginRepositories>				 
     </profile>
   </profiles>
 
