@@ -70,12 +70,13 @@
 					</execution>
 				</executions>
 				<configuration>
-					<coverage>
-						<runCoverage>true</runCoverage>
-						<formats>
-							<format>html</format>
-						</formats>
-					</coverage>
+  					<muleVersion>${app.runtime}</muleVersion>
+  					<coverage>
+				    <runCoverage>true</runCoverage>
+				    <formats>
+				      <format>html</format>
+				    </formats>
+				  </coverage>
 				</configuration>
 			</plugin>
 		</plugins>

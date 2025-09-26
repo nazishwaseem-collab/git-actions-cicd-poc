@@ -12,5 +12,27 @@
       <password>${client.id}~?~${client.secret}</password>
     </server>
   </servers>
+  
+<profiles>
+  <profile>
+    <id>mulesoft</id>
+    <repositories>
+      <repository>
+        <id>anypoint-exchange-v3</id>
+        <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+      </repository>
+      <repository>
+        <id>mulesoft-releases</id>
+        <url>https://repository.mulesoft.org/releases/</url>
+      </repository>
+    </repositories>
+    <pluginRepositories>
+      <pluginRepository>
+        <id>mulesoft-releases</id>
+        <url>https://repository.mulesoft.org/releases/</url>
+      </pluginRepository>
+    </pluginRepositories>
+  </profile>
+</profiles>
 
 </settings>
