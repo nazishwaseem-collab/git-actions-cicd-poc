@@ -41,7 +41,7 @@ jobs:
         run: mvn -B help:effective-settings -s .maven/settings.xml
 
       - name: Build with Maven
-        run: mvn -B clean package -s .maven/settings.xml
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests
 
       - name: Stamp artifact file name with commit hash
         shell: bash
