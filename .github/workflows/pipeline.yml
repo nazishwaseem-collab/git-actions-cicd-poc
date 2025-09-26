@@ -1,6 +1,6 @@
 # This workflow will build a MuleSoft project, publish to Exchange, and deploy to CloudHub 2.0
 
-name: Build and Deploy to Sandbox
+name: Build, Test and Deploy to Sandbox
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
       CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
 
-    steps:	
+    steps:
       - uses: actions/checkout@v4
 
       - uses: actions/cache@v4
@@ -41,6 +41,7 @@ jobs:
       - name: Print effective-settings (optional)
         run: mvn -B help:effective-settings -s .maven/settings.xml
 
+      # Build but skip MUnit tests here
       - name: Build with Maven
         run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests
 
@@ -60,8 +61,41 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  upload:
+  # 🆕 NEW JOB FOR MUNIT TESTING
+  test:
     needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Run MUnit tests (no -DskipMunitTests)
+      - name: Run MUnit Tests
+        run: mvn -B clean test -s .maven/settings.xml
+
+      # Upload the MUnit HTML and JUnit reports
+      - name: Upload MUnit Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: munit-reports
+          path: target/munit-reports/**
+          if-no-files-found: warn
+          retention-days: 7
+
+  upload:
+    needs: [build, test]   # wait for both build & test jobs
     runs-on: ubuntu-latest
     env:
       CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
