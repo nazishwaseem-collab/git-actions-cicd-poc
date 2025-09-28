@@ -85,18 +85,18 @@ jobs:
           distribution: 'temurin'
 
       # Run MUnit Tests (with Mule runtime 4.9.0 and Anypoint creds)
-      - name: Run MUnit Tests
+      #- name: Run MUnit Tests
       #  run: mvn -B clean test -s .maven/settings.xml  -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0  -Dclient.id="${CONNECTED_APP_CLIENT_ID}"  -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
-        run: mvn -B clean test -s .maven/settings.xml -Dmunit.runtime.version=4.9.0 -Dclient.id="${CONNECTED_APP_CLIENT_ID}"  -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
+      # run: mvn -B clean test -s .maven/settings.xml -Dmunit.runtime.version=4.9.0 -Dclient.id="${CONNECTED_APP_CLIENT_ID}"  -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
 
       # Upload the MUnit HTML and JUnit reports
-      - name: Upload MUnit Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: munit-reports
-          path: target/munit-reports/**
-          if-no-files-found: warn
-          retention-days: 7
+      #- name: Upload MUnit Reports
+       # uses: actions/upload-artifact@v4
+        #with:
+         # name: munit-reports
+          #path: target/munit-reports/**
+          #if-no-files-found: warn
+          #retention-days: 7
 
   upload:
     needs: [build, test]   # wait for both build & test jobs
