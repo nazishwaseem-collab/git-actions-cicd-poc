@@ -14,7 +14,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-	# Dynamically pick environment name based on branch												   
+ # Dynamically pick environment name based on branch												   
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
     steps:
@@ -45,10 +45,7 @@ jobs:
 
       # Build but skip MUnit tests here
       - name: Build with Maven
-        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests \
-          -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" \
-          -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" \
-          -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
 
       - name: Stamp artifact file name with commit hash
         shell: bash
