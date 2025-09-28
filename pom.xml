@@ -72,7 +72,10 @@
 			     <configuration>
     			<skipEmbeddedRuntime>false</skipEmbeddedRuntime>
 			    <muleVersion>4.9.0</muleVersion>
-			    <coverage>true</coverage>
+			    <coverage>
+				  <runCoverage>true</runCoverage>
+				  <format>html</format>
+				</coverage>
 			    <disableCloudHubDeployment>true</disableCloudHubDeployment>
 			  </configuration>
 			</plugin>
