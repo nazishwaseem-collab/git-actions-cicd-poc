@@ -8,7 +8,7 @@
 		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
 		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
 	<munit:config name="git-actions-poc-test-suite.xml" />
-	<munit:test name="git-actions-poc-test-suite-git-actions-pocFlowTest" doc:id="72641014-2850-4073-a017-5becbe66eb8a" description="Test" ignore="true">
+	<munit:test name="git-actions-poc-test-suite-git-actions-pocFlowTest" doc:id="72641014-2850-4073-a017-5becbe66eb8a" description="Test">
 		<munit:behavior >
 			<flow-ref doc:name="Flow Reference" doc:id="dd7ec05e-f13b-4b13-8fbc-8378f44f0d6a" name="git-actions-pocFlow"/>
 		</munit:behavior>

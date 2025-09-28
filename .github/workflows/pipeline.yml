@@ -1,18 +1,21 @@
-# This workflow will build a MuleSoft project, publish to Exchange, and deploy to CloudHub 2.0
-
-name: Build, Test and Deploy to Sandbox
+name: Build, Test, Upload and Deploy Mule App
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - 'develop'      # dev environment
+      - 'release/**'   # uat environment
+      - 'master'       # prod environment
   workflow_dispatch:
+
+env:
+  JAVA_VERSION: '17'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+    # Dynamically pick environment name based on branch
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
     steps:
       - uses: actions/checkout@v4
@@ -21,29 +24,17 @@ jobs:
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          restore-keys: ${{ runner.os }}-maven-
 
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
-      # Give this run a unique version so Exchange doesn't reject duplicates
-      - name: Set CI version (unique per run)
-        run: |
-          BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
-          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
-          echo "Using version: ${NEW_VERSION}"
-
-      - name: Print effective-settings (optional)
-        run: mvn -B help:effective-settings -s .maven/settings.xml
-
-      # Build but skip MUnit tests here
+      # Build (skip MUnit tests for now)
       - name: Build with Maven
-        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}"  -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
 
       - name: Stamp artifact file name with commit hash
         shell: bash
@@ -56,105 +47,71 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts
+          name: mule-artifact
           path: target/*.jar
           if-no-files-found: error
           retention-days: 7
 
-  # NEW JOB FOR MUNIT TESTING
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    env:
-      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      # Run MUnit Tests (with Mule runtime 4.9.0 and Anypoint creds)
-      #- name: Run MUnit Tests
-      #  run: mvn -B clean test -s .maven/settings.xml  -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0  -Dclient.id="${CONNECTED_APP_CLIENT_ID}"  -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
-      # run: mvn -B clean test -s .maven/settings.xml -Dmunit.runtime.version=4.9.0 -Dclient.id="${CONNECTED_APP_CLIENT_ID}"  -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
-
-      # Upload the MUnit HTML and JUnit reports
-      #- name: Upload MUnit Reports
-       # uses: actions/upload-artifact@v4
-        #with:
-         # name: munit-reports
-          #path: target/munit-reports/**
-          #if-no-files-found: warn
-          #retention-days: 7
+  # Uncomment when Nexus credentials are available
+  # test:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/cache@v4
+  #       with:
+  #         path: ~/.m2/repository
+  #         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+  #     - uses: actions/setup-java@v4
+  #       with:
+  #         java-version: ${{ env.JAVA_VERSION }}
+  #         distribution: 'temurin'
+  #     - name: Run MUnit Tests
+  #       run: mvn -B clean test -s .maven/settings.xml \
+  #         -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0 \
+  #         -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" \
+  #         -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"
+  #     - name: Upload MUnit Reports
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: munit-reports
+  #         path: target/munit-reports/**
+  #         if-no-files-found: warn
+  #         retention-days: 7
 
   upload:
-    needs: [build, test]   # wait for both build & test jobs
+    needs: [build]  # add 'test' later when enabled
     runs-on: ubuntu-latest
-    env:
-      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
-      KEY: ${{ secrets.decryption_key }}
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
       - uses: actions/download-artifact@v4
         with:
-          name: artifacts
+          name: mule-artifact
           path: .
-
-      # Ensure the same unique version is set in this job too (matches build job)
-      - name: Set CI version (unique per run)
-        run: |
-          BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
-          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
-          echo "Using version: ${NEW_VERSION}"
-
-      # Publish to Exchange via distributionManagement (server id = Repository)
-      - name: Upload to Exchange
-        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}" -Ddecryption.key="$KEY"
+      - name: Upload to Exchange (Nexus/Anypoint)
+        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
 
   deploy:
     needs: upload
     runs-on: ubuntu-latest
-    env:
-      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
-      KEY: ${{ secrets.decryption_key }}
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
       - uses: actions/download-artifact@v4
         with:
-          name: artifacts
+          name: mule-artifact
           path: .
-
-      - name: Deploy to Sandbox (CloudHub 2.0)
-        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}" -Ddecryption.key="$KEY"
+      - name: Deploy to CloudHub 2.0
+        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
