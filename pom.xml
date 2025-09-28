@@ -74,7 +74,6 @@
 			    <muleVersion>4.9.0</muleVersion>
 			    <coverage>
 				  <runCoverage>true</runCoverage>
-				  <format>html</format>
 				</coverage>
 			    <disableCloudHubDeployment>true</disableCloudHubDeployment>
 			  </configuration>
