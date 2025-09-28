@@ -14,7 +14,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Dynamically pick environment name based on branch
+	# Dynamically pick environment name based on branch												   
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
     steps:
@@ -32,9 +32,23 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
-      # Build (skip MUnit tests for now)
+      # Give this run a unique version so Exchange doesn't reject duplicates
+      - name: Set CI version (unique per run)
+        run: |
+          BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
+          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
+          echo "Using version: ${NEW_VERSION}"
+
+      - name: Print effective-settings (optional)
+        run: mvn -B help:effective-settings -s .maven/settings.xml
+
+      # Build but skip MUnit tests here
       - name: Build with Maven
-        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}"  -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests \
+          -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" \
+          -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" \
+          -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
 
       - name: Stamp artifact file name with commit hash
         shell: bash
@@ -91,12 +105,23 @@ jobs:
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
       - uses: actions/download-artifact@v4
         with:
           name: mule-artifact
           path: .
+
+      # Ensure the same unique version is set in this job too (matches build job)
+      - name: Set CI version (unique per run)
+        run: |
+          BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
+          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
+          echo "Using version: ${NEW_VERSION}"
+
       - name: Upload to Exchange (Nexus/Anypoint)
-        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
+        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests  -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
 
   deploy:
     needs: upload
@@ -109,6 +134,7 @@ jobs:
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
       - uses: actions/download-artifact@v4
         with:
           name: mule-artifact
