@@ -56,30 +56,27 @@
 				</configuration>
 			</plugin>
 			<plugin>
-				<groupId>com.mulesoft.munit.tools</groupId>
-				<artifactId>munit-maven-plugin</artifactId>
-				<version>${munit.version}</version>
-				<executions>
-					<execution>
-						<id>test</id>
-						<phase>test</phase>
-						<goals>
-							<goal>test</goal>
-							<goal>coverage-report</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-  					<muleVersion>${app.runtime}</muleVersion>
-  					 <skipEmbeddedRuntime>true</skipEmbeddedRuntime>
-  					<coverage>
-				    <runCoverage>true</runCoverage>
-				    <formats>
-				      <format>html</format>
-				    </formats> 
-				  </coverage>
-				</configuration>
+			    <groupId>com.mulesoft.munit.tools</groupId>
+			    <artifactId>munit-maven-plugin</artifactId>
+			    <version>3.4.0</version>
+			
+			    <executions>
+			        <execution>
+			            <id>munit-test</id>
+			            <phase>test</phase>
+			            <goals>
+			                <goal>test</goal>
+			            </goals>
+			        </execution>
+			    </executions>
+			     <configuration>
+    			<skipEmbeddedRuntime>false</skipEmbeddedRuntime>
+			    <muleVersion>4.9.0</muleVersion>
+			    <coverage>true</coverage>
+			    <disableCloudHubDeployment>true</disableCloudHubDeployment>
+			  </configuration>
 			</plugin>
+
 		</plugins>
 	</build>
 
