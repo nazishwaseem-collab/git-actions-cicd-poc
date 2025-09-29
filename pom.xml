@@ -50,6 +50,7 @@
 							</services>
 						</integrations>
 						<properties>
+							<env>${env}</env>
               				<mule.key>${decryption.key}</mule.key>
             			</properties>
 					</cloudhub2Deployment>

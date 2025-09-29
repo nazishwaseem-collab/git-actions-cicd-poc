@@ -10,14 +10,15 @@ on:
 
 env:
   JAVA_VERSION: '17'
+  TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-# Dynamically pick environment name based on branch												   
+																  
 
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ env.TARGET_ENV }}
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +48,7 @@ jobs:
 
       # Build but skip MUnit tests here
       - name: Build with Maven
-        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
 
       - name: Stamp artifact file name with commit hash
         shell: bash
@@ -69,7 +70,7 @@ jobs:
   # test:
   #   needs: build
   #   runs-on: ubuntu-latest
-  #   environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  #   environment: ${{ env.TARGET_ENV }}
   #   steps:
   #     - uses: actions/checkout@v4
   #     - uses: actions/cache@v4
@@ -83,6 +84,7 @@ jobs:
   #     - name: Run MUnit Tests
   #       run: mvn -B clean test -s .maven/settings.xml \
   #         -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0 \
+  #         -Denv=${{ env.TARGET_ENV }} \
   #         -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" \
   #         -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"
   #     - name: Upload MUnit Reports
@@ -96,7 +98,7 @@ jobs:
   upload:
     needs: [build]  # add 'test' later when enabled
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ env.TARGET_ENV }}
 
     steps:
       - uses: actions/checkout@v4
@@ -120,12 +122,12 @@ jobs:
           echo "Using version: ${NEW_VERSION}"
 
       - name: Upload to Exchange (Nexus/Anypoint)
-        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests  -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
+        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
 
   deploy:
     needs: upload
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ env.TARGET_ENV }}
 
     steps:
       - uses: actions/checkout@v4
@@ -138,7 +140,7 @@ jobs:
         with:
           name: mule-artifact
           path: .
-          
+
       # Ensure the same unique version is set here too
       - name: Set CI version (unique per run)
         run: |
@@ -146,6 +148,6 @@ jobs:
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
           echo "Using version: ${NEW_VERSION}"
-          
+
       - name: Deploy to CloudHub 2.0
-        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
+        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
