@@ -36,6 +36,11 @@
           <url>https://repository.mulesoft.org/releases/</url>
         </pluginRepository>
       </pluginRepositories>
+
+      <!-- 🔑 Inject org ID dynamically -->
+      <properties>
+        <anypoint.organization>${env.ORG_ID}</anypoint.organization>
+      </properties>
     </profile>
   </profiles>
 
