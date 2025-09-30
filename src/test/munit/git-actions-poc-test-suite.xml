@@ -10,10 +10,10 @@
 	<munit:config name="git-actions-poc-test-suite.xml" />
 	<munit:test name="git-actions-poc-test-suite-git-actions-pocFlowTest" doc:id="72641014-2850-4073-a017-5becbe66eb8a" description="Test">
 		<munit:behavior >
-			<flow-ref doc:name="Flow Reference" doc:id="dd7ec05e-f13b-4b13-8fbc-8378f44f0d6a" name="git-actions-pocFlow"/>
+			<flow-ref doc:name="Flow Reference" doc:id="dd7ec05e-f13b-4b13-8fbc-8378f44f0d6a" name="git-actions-cicd-poc-main"/>
 		</munit:behavior>
 		<munit:execution >
-			<flow-ref doc:name="Flow-ref to git-actions-pocFlow" doc:id="6f13595f-1ba0-4b34-9978-6e05f0130cc3" name="git-actions-pocFlow"/>
+			<flow-ref doc:name="Flow-ref to git-actions-pocFlow" doc:id="6f13595f-1ba0-4b34-9978-6e05f0130cc3" name="git-actions-cicd-poc-main"/>
 		</munit:execution>
 		<munit:validation >
 			<munit-tools:assert-that doc:name="Assert that" doc:id="e8e01a8f-eed5-4483-8381-601d34ddf88d" expression="#[payload]" is="#[MunitTools::notNullValue()]"/>
