@@ -3,11 +3,11 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>ed6db8fe-fb50-4895-b773-ea82ad95798c</groupId>
-	<artifactId>git-actions-poc</artifactId>
+	<artifactId>git-actions-cicd-poc</artifactId>
 	<version>1.0.0</version>
 	<packaging>mule-application</packaging>
 
-	<name>git-actions-poc</name>
+	<name>git-actions-cicd-poc</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -50,33 +50,33 @@
 							</services>
 						</integrations>
 						<properties>
-              				<mule.key>${decryption.key}</mule.key>
-            			</properties>
+							<mule.key>${decryption.key}</mule.key>
+						</properties>
 					</cloudhub2Deployment>
+					<classifier>mule-application</classifier>
 				</configuration>
 			</plugin>
 			<plugin>
-			    <groupId>com.mulesoft.munit.tools</groupId>
-			    <artifactId>munit-maven-plugin</artifactId>
-			    <version>3.4.0</version>
-			
-			    <executions>
-			        <execution>
-			            <id>munit-test</id>
-			            <phase>test</phase>
-			            <goals>
-			                <goal>test</goal>
-			            </goals>
-			        </execution>
-			    </executions>
-			     <configuration>
-    			<skipEmbeddedRuntime>false</skipEmbeddedRuntime>
-			    <muleVersion>4.9.0</muleVersion>
-			    <coverage>
-				  <runCoverage>true</runCoverage>
-				</coverage>
-			    <disableCloudHubDeployment>true</disableCloudHubDeployment>
-			  </configuration>
+				<groupId>com.mulesoft.munit.tools</groupId>
+				<artifactId>munit-maven-plugin</artifactId>
+				<version>3.4.0</version>
+				<executions>
+					<execution>
+						<id>munit-test</id>
+						<phase>test</phase>
+						<goals>
+							<goal>test</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<skipEmbeddedRuntime>false</skipEmbeddedRuntime>
+					<muleVersion>4.9.0</muleVersion>
+					<coverage>
+						<runCoverage>true</runCoverage>
+					</coverage>
+					<disableCloudHubDeployment>true</disableCloudHubDeployment>
+				</configuration>
 			</plugin>
 
 		</plugins>
@@ -120,6 +120,19 @@
 			<artifactId>assertions</artifactId>
 			<version>1.2.1</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>ed6db8fe-fb50-4895-b773-ea82ad95798c</groupId>
+			<artifactId>git-actions-cicd-poc</artifactId>
+			<version>1.0.0</version>
+			<classifier>raml</classifier>
+			<type>zip</type>
+		</dependency>
+		<dependency>
+			<groupId>org.mule.modules</groupId>
+			<artifactId>mule-apikit-module</artifactId>
+			<version>1.11.3</version>
+			<classifier>mule-plugin</classifier>
 		</dependency>
 	</dependencies>
 
