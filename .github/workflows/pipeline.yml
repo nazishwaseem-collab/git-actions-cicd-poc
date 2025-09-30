@@ -33,6 +33,16 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
+      - name: Debug secrets
+        run: |
+          echo "ORG_ID length: ${#ORG_ID}"
+          echo "CLIENT_ID length: ${#CONNECTED_APP_CLIENT_ID}"
+          echo "CLIENT_SECRET length: ${#CONNECTED_APP_CLIENT_SECRET}"
+        env:
+          ORG_ID: ${{ secrets.ORG_ID }}
+          CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+          CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+
       # Give this run a unique version so Exchange doesn't reject duplicates
       - name: Set CI version (unique per run)
         run: |
