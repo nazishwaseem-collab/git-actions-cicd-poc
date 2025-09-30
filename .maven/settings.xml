@@ -12,8 +12,8 @@
     <!-- Auth for Anypoint Exchange (uses GitHub Actions secrets as env vars) -->
     <server>
       <id>Repository</id>
-      <username>${env.CONNECTED_APP_CLIENT_ID}</username>
-      <password>${env.CONNECTED_APP_CLIENT_SECRET}</password>
+      <username>~~~Client~~~</username>
+      <password>${client.id}~?~${client.secret}</password>
     </server>
   </servers>
 
