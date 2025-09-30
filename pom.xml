@@ -139,6 +139,7 @@
   </dependencies>
 
   <repositories>
+    <!-- Anypoint Exchange -->
     <repository>
       <id>anypoint-exchange-v3</id>
       <name>Anypoint Exchange</name>
@@ -150,6 +151,28 @@
       <name>MuleSoft Releases Repository</name>
       <url>https://repository.mulesoft.org/releases/</url>
       <layout>default</layout>
+    </repository>
+			  
+    <repository>
+      <id>Repository</id>
+      <name>Private Exchange repository</name>
+      <url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${project.groupId}/maven</url>
+      <layout>default</layout>
+    </repository>
+
+    <!-- Nexus Repos -->
+    <repository>
+      <id>nexus</id>
+      <name>Nexus Releases</name>
+      <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee</url>
+    </repository>
+    <repository>
+      <id>nexus-snapshots</id>
+      <name>Nexus Snapshots</name>
+      <url>https://repository.mulesoft.org/nexus-ee/content/repositories/snapshots-ee</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
     </repository>
   </repositories>
 
@@ -163,14 +186,24 @@
         <enabled>false</enabled>
       </snapshots>
     </pluginRepository>
+    <pluginRepository>
+      <id>nexus</id>
+      <name>Nexus Plugin Repo</name>
+      <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee</url>
+    </pluginRepository>
   </pluginRepositories>
 
   <distributionManagement>
     <repository>
       <id>Repository</id>
       <name>Corporate Repository</name>
-      <url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${anypoint.organization}/maven</url>
+      <url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${project.groupId}/maven</url>																				 
       <layout>default</layout>
     </repository>
+    <snapshotRepository>
+      <id>nexus-snapshots</id>
+      <name>Nexus Snapshots</name>
+      <url>https://repository.mulesoft.org/nexus-ee/content/repositories/snapshots-ee</url>
+    </snapshotRepository>
   </distributionManagement>
 </project>

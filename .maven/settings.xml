@@ -15,11 +15,25 @@
       <password>${env.CONNECTED_APP_CLIENT_SECRET}</password>
     </server>
 
-    <!-- Auth for publishing to Exchange (distributionManagement) -->
+    <!-- Auth for publishing to Exchange -->
     <server>
       <id>Repository</id>
       <username>${env.CONNECTED_APP_CLIENT_ID}</username>
       <password>${env.CONNECTED_APP_CLIENT_SECRET}</password>
+    </server>
+
+    <!-- Nexus EE Releases -->
+    <server>
+      <id>nexus</id>
+      <username>${env.NEXUS_USERNAME}</username>
+      <password>${env.NEXUS_PASSWORD}</password>
+    </server>
+
+    <!-- Nexus EE Snapshots -->
+    <server>
+      <id>nexus-snapshots</id>
+      <username>${env.NEXUS_USERNAME}</username>
+      <password>${env.NEXUS_PASSWORD}</password>
     </server>
   </servers>
 
@@ -35,11 +49,24 @@
           <id>mulesoft-releases</id>
           <url>https://repository.mulesoft.org/releases/</url>
         </repository>
+        <repository>
+          <id>nexus</id>
+          <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee</url>
+        </repository>
+        <repository>
+          <id>nexus-snapshots</id>
+          <url>https://repository.mulesoft.org/nexus-ee/content/repositories/snapshots-ee</url>
+        </repository>
       </repositories>
+
       <pluginRepositories>
         <pluginRepository>
           <id>mulesoft-releases</id>
           <url>https://repository.mulesoft.org/releases/</url>
+        </pluginRepository>
+        <pluginRepository>
+          <id>nexus</id>
+          <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee</url>
         </pluginRepository>
       </pluginRepositories>
     </profile>
