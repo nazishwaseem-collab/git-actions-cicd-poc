@@ -42,7 +42,6 @@
           <url>https://repository.mulesoft.org/releases/</url>
         </pluginRepository>
       </pluginRepositories>
-      <properties>
     </profile>
   </profiles>
 
