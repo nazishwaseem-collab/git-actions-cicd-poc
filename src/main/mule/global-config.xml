@@ -9,9 +9,9 @@ http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/sc
 	<http:listener-config name="HTTP_Listener_config">
         <http:listener-connection host="0.0.0.0" port="${https.port}" readTimeout="${https.timeout.readTimeOutInMillisec}"/>
     </http:listener-config>
-	<configuration-properties doc:name="Configuration properties" doc:id="ed917405-3c82-4cbf-91c5-a954f9c722b5" file="properties/config-${env}.yaml" />
-	<configuration-properties doc:name="Configuration properties" doc:id="1b625045-45b5-4ecf-ba88-c76cead40267" file="properties/config-${env}.yaml" />
-	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="9feddb77-be10-4c02-b7e8-579943a7aa1a" file="properties/config-secure-${env}.yaml" key="${mule.key}" />
+	<configuration-properties doc:name="Configuration properties" doc:id="4031e55a-1fd0-47f5-bca1-172d243a81c6" file="properties/config-${env}.yaml" />
+	<configuration-properties doc:name="Configuration properties" doc:id="364701b5-dab7-469c-bf84-abbd781f577f" file="properties/config-${env}.yaml" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="ee716526-6a92-4658-927a-68de6f4ec26a" file="properties/config-secure-${env}.yaml" key="${mule.key}" />
 	
 	
 </mule>
