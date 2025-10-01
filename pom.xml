@@ -6,8 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>ed6db8fe-fb50-4895-b773-ea82ad95798c</groupId>
-  <!-- artifactId is now prefixed dynamically with bos{env}- -->
-  <artifactId>${project.prefix.artifactId}</artifactId>
+  <artifactId>git-actions-cicd-poc</artifactId>
   <version>1.0.0</version>
   <packaging>mule-application</packaging>
 
@@ -19,9 +18,6 @@
     <app.runtime>4.9.0</app.runtime>
     <mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
     <munit.version>3.4.0</munit.version>
-	 <!-- Dynamic artifact prefix -->
-    <base.artifactId>git-actions-cicd-poc</base.artifactId>
-    <project.prefix.artifactId>bos${env}-${base.artifactId}</project.prefix.artifactId>																				   
   </properties>
 
   <build>
@@ -44,7 +40,7 @@
             <target>Cloudhub-US-East-2</target>
             <muleVersion>4.9.0</muleVersion>
             <server>Repository</server>
-            <applicationName>${project.artifactId}</applicationName>
+           <applicationName>${app.name}</applicationName>
             <releaseChannel>EDGE</releaseChannel>
             <replicas>1</replicas>
             <vCores>0.1</vCores>
@@ -66,7 +62,7 @@
       <plugin>
         <groupId>com.mulesoft.munit.tools</groupId>
         <artifactId>munit-maven-plugin</artifactId>
-        <version>3.4.0</version>
+        <version>${munit.version}</version>
         <executions>
           <execution>
             <id>munit-test</id>
@@ -110,14 +106,14 @@
     <dependency>
       <groupId>com.mulesoft.munit</groupId>
       <artifactId>munit-runner</artifactId>
-      <version>3.4.0</version>
+      <version>${munit.version}</version>
       <classifier>mule-plugin</classifier>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.mulesoft.munit</groupId>
       <artifactId>munit-tools</artifactId>
-      <version>3.4.0</version>
+      <version>${munit.version}</version>
       <classifier>mule-plugin</classifier>
       <scope>test</scope>
     </dependency>
