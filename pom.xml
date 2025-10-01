@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>ed6db8fe-fb50-4895-b773-ea82ad95798c</groupId>
-	<artifactId>git-actions-cicd-poc</artifactId>
+	<artifactId>git-actions-cicd-poc-v1</artifactId>
 	<version>1.0.0</version>
 	<packaging>mule-application</packaging>
 
