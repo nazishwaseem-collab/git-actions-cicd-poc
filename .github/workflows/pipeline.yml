@@ -47,6 +47,11 @@ jobs:
           CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}                                             
 
+      - name: Set dynamic artifactId with prefix
+        run: |
+          mvn -B versions:set-property -Dproperty=project.prefix.artifactId -DnewValue="bos${TARGET_ENV}-git-actions-cicd-poc" -DgenerateBackupPoms=false
+          echo "ArtifactId will be: bos${TARGET_ENV}-git-actions-cicd-poc"
+
       # Give this run a unique version so Exchange doesn't reject duplicates
       - name: Set CI version (unique per run)
         run: |
@@ -80,31 +85,31 @@ jobs:
           retention-days: 7
 
   # Uncomment when Nexus credentials are available
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
-    env:
-      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-      - uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-      - name: Run MUnit Tests
-        run: mvn -B clean test -s .maven/settings.xml -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0 -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"
-      - name: Upload MUnit Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: munit-reports
-          path: target/munit-reports/**
-          if-no-files-found: warn
-          retention-days: 7
+  # test:
+    # needs: build
+    # runs-on: ubuntu-latest
+    # environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    # env:
+      # TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    # steps:
+      # - uses: actions/checkout@v4
+      # - uses: actions/cache@v4
+        # with:
+          # path: ~/.m2/repository
+          # key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+      # - uses: actions/setup-java@v4
+        # with:
+          # java-version: ${{ env.JAVA_VERSION }}
+          # distribution: 'temurin'
+      # - name: Run MUnit Tests
+        # run: mvn -B clean test -s .maven/settings.xml -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0 -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"
+      # - name: Upload MUnit Reports
+        # uses: actions/upload-artifact@v4
+        # with:
+          # name: munit-reports
+          # path: target/munit-reports/**
+          # if-no-files-found: warn
+          # retention-days: 7
 
   upload:
     needs: [build]  # add 'test' later when enabled
@@ -127,6 +132,12 @@ jobs:
         with:
           name: mule-artifact
           path: .
+
+      - name: Set dynamic artifactId with prefix
+        run: |
+          mvn -B versions:set-property -Dproperty=project.prefix.artifactId -DnewValue="bos${TARGET_ENV}-git-actions-cicd-poc" -DgenerateBackupPoms=false
+          echo "ArtifactId will be: bos${TARGET_ENV}-git-actions-cicd-poc"
+
 
       # Ensure the same unique version is set in this job too (matches build job)
       - name: Set CI version (unique per run)

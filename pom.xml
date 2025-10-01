@@ -6,7 +6,8 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>ed6db8fe-fb50-4895-b773-ea82ad95798c</groupId>
-  <artifactId>git-actions-cicd-poc</artifactId>
+  <!-- artifactId is now prefixed dynamically with bos{env}- -->
+  <artifactId>${project.prefix.artifactId}</artifactId>
   <version>1.0.0</version>
   <packaging>mule-application</packaging>
 
@@ -18,6 +19,9 @@
     <app.runtime>4.9.0</app.runtime>
     <mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
     <munit.version>3.4.0</munit.version>
+	 <!-- Dynamic artifact prefix -->
+    <base.artifactId>git-actions-cicd-poc</base.artifactId>
+    <project.prefix.artifactId>bos${env}-${base.artifactId}</project.prefix.artifactId>																				   
   </properties>
 
   <build>
