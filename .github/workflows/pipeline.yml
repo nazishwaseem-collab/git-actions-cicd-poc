@@ -143,8 +143,8 @@ jobs:
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false -DprocessDependencies=false
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
-      - name: Upload to Exchange (Nexus/Anypoint)
-        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="bos${{ env.TARGET_ENV }}-git-actions-cicd-poc"
+      - name: Upload to Exchange
+        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
 
 
   policy-management:
