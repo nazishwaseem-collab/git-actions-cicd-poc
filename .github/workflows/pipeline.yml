@@ -266,7 +266,6 @@ jobs:
       ANYPOINT_ORG: ${{ secrets.ORG_ID }}
      ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
