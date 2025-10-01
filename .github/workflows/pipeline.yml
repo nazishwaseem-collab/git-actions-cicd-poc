@@ -245,7 +245,6 @@ jobs:
         with:
           name: api-instance-id
           path: .
-
   rollback:
     needs: deploy
     if: failure()
