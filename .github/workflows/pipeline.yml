@@ -245,6 +245,7 @@ jobs:
         with:
           name: api-instance-id
           path: .
+
   rollback:
     needs: deploy
     if: failure()
@@ -254,7 +255,6 @@ jobs:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-    
 
     steps:
       - uses: actions/checkout@v4
