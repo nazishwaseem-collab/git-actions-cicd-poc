@@ -162,9 +162,7 @@ jobs:
 
       - name: Extract API Name & Version
         run: |
-											
           API_NAME=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-												  
           API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "API_NAME=$API_NAME" >> $GITHUB_ENV
           echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
@@ -253,7 +251,7 @@ jobs:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-    
+
 
     steps:
       - uses: actions/checkout@v4
