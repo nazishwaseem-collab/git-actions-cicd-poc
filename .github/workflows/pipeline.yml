@@ -89,30 +89,36 @@ jobs:
 
   # Uncomment when Nexus credentials are available
   # test:
-    # needs: build
-    # runs-on: ubuntu-latest
-    # environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
-    # env:
-      # TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
-    # steps:
-      # - uses: actions/checkout@v4
-      # - uses: actions/cache@v4
-        # with:
-          # path: ~/.m2/repository
-          # key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-      # - uses: actions/setup-java@v4
-        # with:
-          # java-version: ${{ env.JAVA_VERSION }}
-          # distribution: 'temurin'
-      # - name: Run MUnit Tests
-        # run: mvn -B clean test -s .maven/settings.xml -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0 -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Dapp.name="bos${TARGET_ENV}-git-actions-cicd-poc"
-      # - name: Upload MUnit Reports
-        # uses: actions/upload-artifact@v4
-        # with:
-          # name: munit-reports
-          # path: target/munit-reports/**
-          # if-no-files-found: warn
-          # retention-days: 7
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  #   env:
+  #     TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/cache@v4
+  #       with:
+  #         path: ~/.m2/repository
+  #         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+  #     - uses: actions/setup-java@v4
+  #       with:
+  #         java-version: ${{ env.JAVA_VERSION }}
+  #         distribution: 'temurin'
+  #     - name: Compute dynamic app name
+  #       run: |
+  #         ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+  #         if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+  #         APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+  #         echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+  #     - name: Run MUnit Tests
+  #       run: mvn -B clean test -s .maven/settings.xml -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0 -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Dapp.name="${APP_NAME}"
+  #     - name: Upload MUnit Reports
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: munit-reports
+  #         path: target/munit-reports/**
+  #         if-no-files-found: warn
+  #         retention-days: 7
 
   upload:
     needs: [build]  # add 'test' later when enabled
@@ -146,7 +152,6 @@ jobs:
       - name: Upload to Exchange
         run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
 
-
   policy-management:
     needs: upload
     runs-on: ubuntu-latest
@@ -162,7 +167,10 @@ jobs:
           npm install -g anypoint-cli-v4
           sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Extract API Name & Version from pom.xml
+      - name: CLI login to Anypoint
+        run: anypoint-cli-v4 login --client-id "${{ secrets.CONNECTED_APP_CLIENT_ID }}" --client-secret "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" --organization "${{ secrets.ORG_ID }}" --environment "${{ env.TARGET_ENV }}"
+
+      - name: Compute API Name & Version
         run: |
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
           if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
@@ -172,20 +180,15 @@ jobs:
           echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
 
       - name: Ensure API instance exists in API Manager
-        run: |
-          echo "Checking if API $API_NAME exists in API Manager for env ${{ env.TARGET_ENV }}"
-          API_EXISTS=$(anypoint-cli-v4 api-mgr api list --client-id "${{ secrets.CONNECTED_APP_CLIENT_ID }}" --client-secret "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" --organization "${{ secrets.ORG_ID }}" --environment ${{ env.TARGET_ENV }} --output json | jq -r --arg name "$API_NAME" '.[] | select(.name==$name) | .id')
+        run: |																					  
+          API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "$API_NAME" '.[] | select(.name==$name) | .id')
 
           if [ -z "$API_EXISTS" ]; then
-            echo "API not found. Creating $API_NAME instance in API Manager..."
-            API_EXISTS=$(anypoint-cli-v4 api-mgr api create --client-id "${{ secrets.CONNECTED_APP_CLIENT_ID }}" --client-secret "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" --organization "${{ secrets.ORG_ID }}" --environment ${{ env.TARGET_ENV }} --name "$API_NAME" --asset-id "$API_NAME" --version "1.0.0" --type http --endpoint '{"isCloudHub":true,"muleVersion4OrAbove":true,"deploymentType":"CLOUDHUB"}' --output json | jq -r '.id')
-            echo "Created new API instance with id $API_EXISTS"
-          else
-            echo "API already exists with id $API_EXISTS"
+																			   
+            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:create --name "$API_NAME" --asset-id "$API_NAME" --version "1.0.0" --type http --endpoint '{"isCloudHub":true,"muleVersion4OrAbove":true,"deploymentType":"CLOUDHUB"}' --output json | jq -r '.id')										 
           fi
-
           echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
-
+          echo "$API_EXISTS" > .api_instance_id.txt
       - name: Save API Instance ID for later jobs
         run: echo "${API_INSTANCE_ID}" > .api_instance_id.txt
       - uses: actions/upload-artifact@v4
@@ -196,7 +199,7 @@ jobs:
       - name: Apply Client ID Enforcement Policy
         run: |
           echo "Applying Client ID Enforcement policy to API instance $API_INSTANCE_ID in env ${{ env.TARGET_ENV }}"
-          anypoint-cli-v4 api-mgr policy apply --client-id "${{ secrets.CONNECTED_APP_CLIENT_ID }}" --client-secret "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" --organization "${{ secrets.ORG_ID }}" --environment ${{ env.TARGET_ENV }} --api-id "${API_INSTANCE_ID}" --policy client-id-enforcement --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}'
+          anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}'
 
 
   deploy:
@@ -261,18 +264,23 @@ jobs:
         with:
           name: last-successful-version
           path: .
-      - uses: actions/download-artifact@v4
+     - uses: actions/download-artifact@v4
         with:
           name: api-instance-id
           path: .
+
+      - name: Install Anypoint CLI
+        run: npm install -g anypoint-cli-v4
+
+      - name: CLI login to Anypoint
+        run: anypoint-cli-v4 login --client-id "${{ secrets.CONNECTED_APP_CLIENT_ID }}" --client-secret "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" --organization "${{ secrets.ORG_ID }}" --environment "${{ env.TARGET_ENV }}"
+
 
       - name: Rollback to Previous Version and Re-Apply Policy
         run: |
           PREVIOUS_VERSION=$(cat .last_version.txt)
           API_INSTANCE_ID=$(cat .api_instance_id.txt)
           echo "Rolling back to version $PREVIOUS_VERSION with API instance $API_INSTANCE_ID"
-
           mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dapplication.version=$PREVIOUS_VERSION -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
-
           # Ensure rollback still enforces policy
-          anypoint-cli-v4 api-mgr policy apply --client-id "${{ secrets.CONNECTED_APP_CLIENT_ID }}" --client-secret "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" --organization "${{ secrets.ORG_ID }}" --environment ${{ env.TARGET_ENV }} --api-id "${API_INSTANCE_ID}" --policy client-id-enforcement --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}'
+          anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}'
