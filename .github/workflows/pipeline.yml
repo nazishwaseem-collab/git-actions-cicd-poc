@@ -184,7 +184,6 @@ jobs:
           API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "$API_NAME" '.[] | select(.name==$name) | .id')
 
           if [ -z "$API_EXISTS" ]; then
-																			   
             API_EXISTS=$(anypoint-cli-v4 api-mgr:api:create --name "$API_NAME" --asset-id "$API_NAME" --version "1.0.0" --type http --endpoint '{"isCloudHub":true,"muleVersion4OrAbove":true,"deploymentType":"CLOUDHUB"}' --output json | jq -r '.id')										 
           fi
           echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
