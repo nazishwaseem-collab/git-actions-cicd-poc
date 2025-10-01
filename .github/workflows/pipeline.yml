@@ -158,6 +158,10 @@ jobs:
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}
+      ANYPOINT_ENV: ${{ env.TARGET_ENV }}                                                          
 
     steps:
       - uses: actions/checkout@v4
@@ -167,8 +171,10 @@ jobs:
           npm install -g anypoint-cli-v4
           sudo apt-get update && sudo apt-get install -y jq
 
-      - name: CLI login to Anypoint
-        run: anypoint-cli-v4 login --client-id "${{ secrets.CONNECTED_APP_CLIENT_ID }}" --client-secret "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" --organization "${{ secrets.ORG_ID }}" --environment "${{ env.TARGET_ENV }}"
+      - name: Debug CLI session
+        run: |
+          anypoint-cli-v4 --version
+          anypoint-cli-v4 user:whoami || true                                   
 
       - name: Compute API Name & Version
         run: |
@@ -255,6 +261,10 @@ jobs:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}
+      ANYPOINT_ENV: ${{ env.TARGET_ENV }}
 
     steps:
       - uses: actions/checkout@v4
@@ -270,9 +280,10 @@ jobs:
       - name: Install Anypoint CLI
         run: npm install -g anypoint-cli-v4
 
-      - name: CLI login to Anypoint
-        run: anypoint-cli-v4 login --client-id "${{ secrets.CONNECTED_APP_CLIENT_ID }}" --client-secret "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" --organization "${{ secrets.ORG_ID }}" --environment "${{ env.TARGET_ENV }}"
-
+      - name: Debug CLI session
+        run: |
+          anypoint-cli-v4 --version
+          anypoint-cli-v4 user:whoami || true
 
       - name: Rollback to Previous Version and Re-Apply Policy
         run: |
