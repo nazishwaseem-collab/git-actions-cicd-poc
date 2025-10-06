@@ -174,7 +174,7 @@ jobs:
       - name: Debug CLI session
         run: |
           anypoint-cli-v4 --version
-          anypoint-cli-v4 user:whoami || true                                   
+          anypoint-cli-v4 user:whoami || true
 
       - name: Compute API Name & Version
         run: |
@@ -186,16 +186,16 @@ jobs:
           echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
 
       - name: Ensure API instance exists in API Manager
-         run: |
-           API_EXISTS=$(anypoint-cli-v4 api-mgr api list --organization "$ANYPOINT_ORG" --environment "$ANYPOINT_ENV" --output json | jq -r --arg name "$API_NAME" '.[] | select(.name==$name) | .id')
-           if [ -z "$API_EXISTS" ]; then
-           echo "API not found. Creating new one: $API_NAME"
-           API_EXISTS=$(anypoint-cli-v4 api-mgr api create --organization "$ANYPOINT_ORG" --environment "$ANYPOINT_ENV" --name "$API_NAME" --asset-id "$API_NAME" --version "1.0.0" --type http --endpoint '{"isCloudHub":true,"muleVersion4OrAbove":true,"deploymentType":"CLOUDHUB"}' --output json | jq -r '.id')
-           else
+        run: |
+          API_EXISTS=$(anypoint-cli-v4 api-mgr api list --organization "$ANYPOINT_ORG" --environment "$ANYPOINT_ENV" --output json | jq -r --arg name "$API_NAME" '.[] | select(.name==$name) | .id')
+          if [ -z "$API_EXISTS" ]; then
+            echo "API not found. Creating new one: $API_NAME"
+            API_EXISTS=$(anypoint-cli-v4 api-mgr api create --organization "$ANYPOINT_ORG" --environment "$ANYPOINT_ENV" --name "$API_NAME" --asset-id "$API_NAME" --version "1.0.0" --type http --endpoint '{"isCloudHub":true,"muleVersion4OrAbove":true,"deploymentType":"CLOUDHUB"}' --output json | jq -r '.id')
+          else
             echo "API already exists with ID $API_EXISTS"
-           fi
-           echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
-           echo "$API_EXISTS" > .api_instance_id.txt
+          fi
+          echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
+          echo "$API_EXISTS" > .api_instance_id.txt
 
 															 
       - uses: actions/upload-artifact@v4
