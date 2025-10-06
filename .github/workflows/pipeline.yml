@@ -175,8 +175,12 @@ jobs:
         run: anypoint-cli-v4 --version
 
       - name: Auth with Anypoint (non-interactive)
-        run: anypoint-cli-v4 auth:login --client-id "${{ env.ANYPOINT_CLIENT_ID }}" --client-secret "${{ env.ANYPOINT_CLIENT_SECRET }}" --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}"
-
+        run: |
+          anypoint-cli-v4 conf client_id ${{ env.ANYPOINT_CLIENT_ID }}
+          anypoint-cli-v4 conf client_secret "${{ env.ANYPOINT_CLIENT_SECRET }}"
+          anypoint-cli-v4 conf organization "${{ env.ANYPOINT_ORG }}"
+          
+          anypoint-cli-v4 account:environment:list
 
       - name: Compute API Name & Version
         run: |
