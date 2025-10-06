@@ -184,22 +184,24 @@ jobs:
 
       - name: Compute API Name & Version (existing Exchange asset)
         run: |
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
           API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
           echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
-          echo "Exchange asset = $ARTIFACT_ID, version = $API_VERSION"
+          echo "Exchange asset = $REPO_NAME, version = $API_VERSION"
 
       - name: Manage API from Exchange Asset
         run: |
           echo "Checking if API instance already exists..."
           API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "$APP_NAME" '.[] | select(.name==$name) | .id')
           if [ -z "$API_EXISTS" ]; then
-            echo "No existing API instance found. Managing from Exchange asset: $ARTIFACT_ID:$API_VERSION"
-            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$ARTIFACT_ID" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://$APP_NAME" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.id' || true)
+            echo "No existing API instance found. Managing from Exchange asset: $REPO_NAME:$API_VERSION"
+            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.id' || true)
             if [ -z "$API_EXISTS" ]; then
               echo "Error: Failed to create API instance. Please verify Exchange asset and permissions."
             else
