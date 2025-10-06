@@ -206,7 +206,7 @@ jobs:
           echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
           echo "$API_EXISTS" > .api_instance_id.txt
 
-     - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
 
         with:
           name: api-instance-id
@@ -221,7 +221,7 @@ jobs:
           else
             echo "Applying Client ID Enforcement policy to API $API_INSTANCE_ID in env ${ANYPOINT_ENV}"
             anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}" --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}' || (echo "Primary policy apply failed; try alternative flags if necessary" && true)
-          fi            
+          fi
 
   deploy:
     needs: policy-management
