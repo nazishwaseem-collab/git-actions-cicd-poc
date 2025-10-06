@@ -200,14 +200,12 @@ jobs:
           fi
           if [ -z "$API_EXISTS" ]; then
             echo "Could not create API instance automatically. Please create it manually in API Manager and re-run the pipeline."
-																																																																													 
           else
             echo "Created/found API instance with id: $API_EXISTS"
           fi
           echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
           echo "$API_EXISTS" > .api_instance_id.txt
 
-															 
      - uses: actions/upload-artifact@v4
 
         with:
@@ -303,8 +301,6 @@ jobs:
 
       - name: Auth with Anypoint (non-interactive)
         run: anypoint-cli-v4 auth:login --client-id "${{ env.ANYPOINT_CLIENT_ID }}" --client-secret "${{ env.ANYPOINT_CLIENT_SECRET }}" --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}"
-								   
-											 
 
       - name: Rollback to Previous Version and Re-Apply Policy
         run: |
