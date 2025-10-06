@@ -188,7 +188,6 @@ jobs:
       - name: Ensure API instance exists in API Manager
          run: |
           API_EXISTS=$(anypoint-cli-v4 api-mgr api list --organization "$ANYPOINT_ORG" --environment "$ANYPOINT_ENV" --output json | jq -r --arg name "$API_NAME" '.[] | select(.name==$name) | .id')
-
           if [ -z "$API_EXISTS" ]; then
             echo "API not found. Creating new one: $API_NAME"
             API_EXISTS=$(anypoint-cli-v4 api-mgr api create --organization "$ANYPOINT_ORG" --environment "$ANYPOINT_ENV" --name "$API_NAME" --asset-id "$API_NAME" --version "1.0.0" --type http --endpoint '{"isCloudHub":true,"muleVersion4OrAbove":true,"deploymentType":"CLOUDHUB"}' --output json | jq -r '.id')
@@ -204,12 +203,10 @@ jobs:
           name: api-instance-id
           path: .api_instance_id.txt
 
-
       - name: Apply Client ID Enforcement Policy
         run: |
           echo "Applying Client ID Enforcement policy to API $API_INSTANCE_ID in env $ANYPOINT_ENV"
           anypoint-cli-v4 api-mgr policy apply --organization "$ANYPOINT_ORG" --environment "$ANYPOINT_ENV" --api-id "$API_INSTANCE_ID" --policy client-id-enforcement --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}'
-
 
   deploy:
     needs: policy-management
@@ -217,7 +214,6 @@ jobs:
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
