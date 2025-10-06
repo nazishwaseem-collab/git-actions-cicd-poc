@@ -182,50 +182,51 @@ jobs:
           
           anypoint-cli-v4 account:environment:list
 
-      - name: Compute API Name & Version
+      - name: Compute API Name & Version (existing Exchange asset)
         run: |
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
-          API_NAME="${PREFIX}-${ARTIFACT_ID}"
           API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          echo "API_NAME=$API_NAME" >> $GITHUB_ENV
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
           echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "Exchange asset = $ARTIFACT_ID, version = $API_VERSION"
 
-      - name: Ensure API instance exists in API Manager
+      - name: Manage API from Exchange Asset
         run: |
-          API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}" --output json | jq -r --arg name "$API_NAME" '.[] | select(.name==$name) | .id')
+          echo "Checking if API instance already exists..."
+          API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "$APP_NAME" '.[] | select(.name==$name) | .id')
           if [ -z "$API_EXISTS" ]; then
-            echo "API not found. Attempting creation via api-mgr:api:create..."
-            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:create --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}" --name "$API_NAME" --asset-id "$API_NAME" --version "$API_VERSION" --type http --endpoint '{"isCloudHub":true,"muleVersion4OrAbove":true,"deploymentType":"CLOUDHUB"}' --output json 2>/dev/null | jq -r '.id' || true)
-          fi
-          if [ -z "$API_EXISTS" ]; then
-            echo "api:create not available or failed — attempting api-mgr:api:manage (best-effort)..."
-            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}" --asset-id "$API_NAME" --asset-version "$API_VERSION" --name "$API_NAME" --output json 2>/dev/null | jq -r '.id' || true)
-          fi
-          if [ -z "$API_EXISTS" ]; then
-            echo "Could not create API instance automatically. Please create it manually in API Manager and re-run the pipeline."
+            echo "No existing API instance found. Managing from Exchange asset: $ARTIFACT_ID:$API_VERSION"
+            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$ARTIFACT_ID" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://$APP_NAME" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.id' || true)
+            if [ -z "$API_EXISTS" ]; then
+              echo "Error: Failed to create API instance. Please verify Exchange asset and permissions."
+            else
+              echo "Created API instance with ID: $API_EXISTS"
+            fi
           else
-            echo "Created/found API instance with id: $API_EXISTS"
+            echo "API instance already exists with ID: $API_EXISTS"
           fi
           echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
           echo "$API_EXISTS" > .api_instance_id.txt
 
       - uses: actions/upload-artifact@v4
-
         with:
           name: api-instance-id
           path: .api_instance_id.txt
           if-no-files-found: warn
 
-      - name: Apply Client ID Enforcement Policy (best-effort)
+      - name: Apply Client ID Enforcement Policy
         run: |
           API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
           if [ -z "$API_INSTANCE_ID" ]; then
-            echo "No API instance id available; skipping policy application."
+            echo "No API instance ID found, skipping policy application."
           else
-            echo "Applying Client ID Enforcement policy to API $API_INSTANCE_ID in env ${ANYPOINT_ENV}"
-            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}" --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}' || (echo "Primary policy apply failed; try alternative flags if necessary" && true)
+            echo "Applying Client ID Enforcement policy to API instance $API_INSTANCE_ID..."
+            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}' || echo "Policy apply failed or already applied."
           fi
+
 
   deploy:
     needs: policy-management
