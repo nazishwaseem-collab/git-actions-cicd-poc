@@ -14,8 +14,8 @@ env:
 jobs:
 
   policy-management:
+    needs: deploy
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
@@ -26,88 +26,61 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Anypoint CLI + jq
+      - name: Install CLI + jq
         run: |
+          echo "Installing Anypoint CLI and jq..."
           npm install -g anypoint-cli-v4
           sudo apt-get update && sudo apt-get install -y jq
 
-      - name: CLI healthcheck
-        run: anypoint-cli-v4 --version
-
-      - name: Auth with Anypoint (non-interactive)
+      - name: Authenticate CLI
         run: |
+          echo "Authenticating CLI..."
           anypoint-cli-v4 conf client_id ${{ env.ANYPOINT_CLIENT_ID }}
           anypoint-cli-v4 conf client_secret "${{ env.ANYPOINT_CLIENT_SECRET }}"
           anypoint-cli-v4 conf organization "${{ env.ANYPOINT_ORG }}"
-          
           anypoint-cli-v4 account:environment:list
 
-      - name: Compute API Name & Version (existing Exchange asset)
+      - name: Manage API Instance
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
           API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then
-            PREFIX="bosdev"
-          elif [ "${TARGET_ENV}" = "uat" ]; then
-            PREFIX="bosuat"
-          else
-            PREFIX="bos"
-          fi
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
-          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-          echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
-          echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
-          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
-          echo "Exchange asset = $REPO_NAME, version = $API_VERSION"
 
-      - name: Manage API from Exchange Asset
-        run: |
-          echo "Checking if API instance already exists..."
+          echo "Checking if API instance exists..."
           API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg asset "$REPO_NAME" --arg ver "$API_VERSION" '.[] | select(.assetId==$asset and .assetVersion==$ver) | .id')
           if [ -z "$API_EXISTS" ]; then
-            echo "No existing API instance found. Managing from Exchange asset: $REPO_NAME:$API_VERSION"
+            echo "No existing API instance. Creating..."
             API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.apiInstanceId // .id' || true)
-            if [ -z "$API_EXISTS" ]; then
-              echo "Error: Failed to create API instance. Please verify Exchange asset and permissions."
-            else
-              echo "Created API instance with ID: $API_EXISTS"
-            fi
-          else
-            echo "API instance already exists with ID: $API_EXISTS"
           fi
-          echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
           echo "$API_EXISTS" > .api_instance_id.txt
+          echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
+          echo " API instance: $API_EXISTS"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: api-instance-id
-          path: .api_instance_id.txt
-          if-no-files-found: warn
-
-      - name: Apply Client ID Enforcement Policy (dynamic version, skip if already applied)
+      - name: Apply JSON Threat Protection Policy
         run: |
-          API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
-          if [ -z "$API_INSTANCE_ID" ]; then
-            echo "No API instance ID found, skipping policy application."
-            exit 0
+          API_INSTANCE_ID=$(cat .api_instance_id.txt)
+          echo "Applying JSON Threat Protection policy to API instance: $API_INSTANCE_ID"
+
+          echo "Fetching latest JSON Threat Protection policy version..."
+          LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId json-threat-protection --output json | jq -r '.[0].version')
+          echo "Latest policy version: $LATEST_POLICY_VERSION"
+
+          if [ -z "$LATEST_POLICY_VERSION" ] || [ "$LATEST_POLICY_VERSION" == "null" ]; then
+            echo "Could not fetch JSON Threat Protection policy version."
+            exit 1
           fi
 
-          # Get latest client-id-enforcement version from Exchange
-          #echo "Fetching latest client-id-enforcement policy version from Exchange..."
-          #LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId "68ef9520-24e9-4cf2-b2f5-620025690913" --assetId "client-id-enforcement" --output json | jq -r '.[0].version')
-          #echo "Latest policy version: $LATEST_POLICY_VERSION"
-
-          # Check if policy is already applied
           echo "Checking if policy is already applied..."
-          #ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
-          #ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" 1.2.3 '.[] | select(.policyId==$id and .version==$ver) | .policyId')
-          #if [ -n "$ALREADY_APPLIED" ]; then
-          # echo "Policy client-id-enforcement v$LATEST_POLICY_VERSION is already applied, skipping."
-          #else
-            echo "Applying Client ID Enforcement policy v$LATEST_POLICY_VERSION..."
-            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" json-thread-protection --policyVersion 1.2.0 --organization ed6db8fe-fb50-4895-b773-ea82ad95798c --environment dev
-            echo "Policy applied successfully."
+          ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json \
+            | jq -r --arg id "json-threat-protection" --arg ver "$LATEST_POLICY_VERSION" \
+            '.[] | select(.policyId==$id and .version==$ver) | .policyId')
+
+          if [ -n "$ALREADY_APPLIED" ]; then
+            echo "JSON Threat Protection v$LATEST_POLICY_VERSION already applied. Skipping."
+          else
+            echo "Applying JSON Threat Protection policy v$LATEST_POLICY_VERSION..."
+            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" json-threat-protection --policyVersion "$LATEST_POLICY_VERSION" --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}"
+            echo "JSON Threat Protection policy applied successfully."
           fi
-
-
