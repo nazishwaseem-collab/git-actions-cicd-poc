@@ -12,9 +12,7 @@ env:
   JAVA_VERSION: '17'																																	 
 
 jobs:
-
   policy-management:
-    needs: deploy
     runs-on: ubuntu-latest
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
