@@ -30,7 +30,13 @@ jobs:
           npm install -g anypoint-cli-v4
           sudo apt-get update && sudo apt-get install -y jq
 
+      - name: CLI healthcheck
+        run: anypoint-cli-v4 --version
+
       - name: Authenticate CLI
+        run: |
+          echo "Authenticating CLI..."
+          - name: Authenticate CLI
         run: |
           echo "Authenticating CLI..."
           anypoint-cli-v4 conf client_id ${{ env.ANYPOINT_CLIENT_ID }}
