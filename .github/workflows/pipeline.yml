@@ -288,20 +288,23 @@ jobs:
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
       - name: Prepare CloudHub properties
+        shell: bash
         run: |
+          set -e
+          echo "Checking API Instance ID file..."
           API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
           if [ -z "$API_INSTANCE_ID" ]; then
-            echo "No API instance ID found — check policy-management job"
+            echo " No API instance ID found — check policy-management job"
             exit 1
           fi
 
           echo "Preparing CloudHub properties for env=${TARGET_ENV}, instance=${API_INSTANCE_ID}"
-          cat <<EOF > cloudhub-properties.txt
-mule.env=${TARGET_ENV}
-api.instance.id=${API_INSTANCE_ID}
-anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}
-anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}
-EOF
+          {
+            echo "mule.env=${TARGET_ENV}"
+            echo "api.instance.id=${API_INSTANCE_ID}"
+            echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}"
+            echo "anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}"
+          } > cloudhub-properties.txt
           echo "Generated CloudHub properties file:"
           cat cloudhub-properties.txt
 
