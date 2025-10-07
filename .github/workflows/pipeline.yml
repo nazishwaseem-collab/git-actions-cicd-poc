@@ -198,10 +198,10 @@ jobs:
       - name: Manage API from Exchange Asset
         run: |
           echo "Checking if API instance already exists..."
-          API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "$APP_NAME" '.[] | select(.name==$name) | .id')
+          API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg asset "$REPO_NAME" --arg ver "$API_VERSION" '.[] | select(.assetId==$asset and .assetVersion==$ver) | .id')
           if [ -z "$API_EXISTS" ]; then
             echo "No existing API instance found. Managing from Exchange asset: $REPO_NAME:$API_VERSION"
-            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.apiInstanceId' || true)
+            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.apiInstanceId // .id' || true)
             if [ -z "$API_EXISTS" ]; then
               echo "Error: Failed to create API instance. Please verify Exchange asset and permissions."
             else
