@@ -250,34 +250,71 @@ jobs:
           #fi
 
 
-  deploy:
+    deploy:
     needs: policy-management
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}
+      ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+
       - uses: actions/download-artifact@v4
         with:
           name: mule-artifact
           path: .
 
-      # Ensure the same unique version is set here too
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-instance-id
+          path: .
+
       - name: Set CI version (unique per run)
         run: |
           BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
           echo "Using version: ${NEW_VERSION}"
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
-      - name: Deploy to CloudHub 2.0
-        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}"
+      - name: Prepare CloudHub properties
+        run: |
+          API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
+          if [ -z "$API_INSTANCE_ID" ]; then
+            echo "No API instance ID found — check policy-management job"
+            exit 1
+          fi
+
+          echo "Preparing CloudHub properties for env=${TARGET_ENV}, instance=${API_INSTANCE_ID}"
+          cat <<EOF > cloudhub-properties.txt
+mule.env=${TARGET_ENV}
+api.instance.id=${API_INSTANCE_ID}
+anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}
+anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}
+EOF
+          echo "Generated CloudHub properties file:"
+          cat cloudhub-properties.txt
+
+      - name: Deploy to CloudHub 2.0 (Auto-discoverable)
+        run: |
+          API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
+          if [ -z "$API_INSTANCE_ID" ]; then
+            echo "No API instance ID found, skipping deployment."
+            exit 1
+          fi
+          
+          echo "Deploying ${APP_NAME} to ${TARGET_ENV} with autodiscovery"
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
       - name: Save version & API instance
         if: success()
@@ -288,12 +325,6 @@ jobs:
         with:
           name: last-successful-version
           path: .last_version.txt
-
-      - uses: actions/download-artifact@v4
-        if: success()
-        with:
-          name: api-instance-id
-          path: .
 
   rollback:
     needs: deploy
