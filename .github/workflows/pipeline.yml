@@ -279,47 +279,29 @@ jobs:
           name: api-instance-id
           path: .
 
-      - name: Set CI version (unique per run)
+       name: Set CI version
         run: |
           BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
-          echo "Using version: ${NEW_VERSION}"
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
-      - name: Prepare CloudHub properties
-        shell: bash
+      - name: Prepare CloudHub properties for autodiscovery
         run: |
-          set -e
-          echo "Checking API Instance ID file..."
-          API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
-          if [ -z "$API_INSTANCE_ID" ]; then
-            echo " No API instance ID found — check policy-management job"
-            exit 1
-          fi
-
-          echo "Preparing CloudHub properties for env=${TARGET_ENV}, instance=${API_INSTANCE_ID}"
-          {
-            echo "mule.env=${TARGET_ENV}"
-            echo "api.instance.id=${API_INSTANCE_ID}"
-            echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}"
-            echo "anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}"
-          } > cloudhub-properties.txt
-          echo "Generated CloudHub properties file:"
+          API_INSTANCE_ID=$(cat api_instance_id.txt)
+          echo "mule.env=${TARGET_ENV}" > cloudhub-properties.txt
+          echo "api.instance.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}" >> cloudhub-properties.txt
+          echo "CloudHub properties:"
           cat cloudhub-properties.txt
 
-      - name: Deploy to CloudHub 2.0 (Auto-discoverable)
+      - name: Deploy to CloudHub 2.0 (env-specific)
         run: |
-          API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
-          if [ -z "$API_INSTANCE_ID" ]; then
-            echo "No API instance ID found, skipping deployment."
-            exit 1
-          fi
-          
-          echo "Deploying ${APP_NAME} to ${TARGET_ENV} with autodiscovery"
-          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+          echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment"
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
-      - name: Save version & API instance
+      - name: Save version
         if: success()
         run: echo "${NEW_VERSION}" > .last_version.txt
 
