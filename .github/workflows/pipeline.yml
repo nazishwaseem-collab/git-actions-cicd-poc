@@ -201,7 +201,7 @@ jobs:
           API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "$APP_NAME" '.[] | select(.name==$name) | .id')
           if [ -z "$API_EXISTS" ]; then
             echo "No existing API instance found. Managing from Exchange asset: $REPO_NAME:$API_VERSION"
-            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.id' || true)
+            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.apiInstanceId' || true)
             if [ -z "$API_EXISTS" ]; then
               echo "Error: Failed to create API instance. Please verify Exchange asset and permissions."
             else
@@ -253,8 +253,8 @@ jobs:
         run: |
           BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
-          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false -DprocessDependencies=false
-          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
+          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
+          echo "Using version: ${NEW_VERSION}"
 
       - name: Deploy to CloudHub 2.0
         run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}"
@@ -316,6 +316,7 @@ jobs:
           echo "Rolling back to version $PREVIOUS_VERSION (API $API_INSTANCE_ID)"
           mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dapplication.version=$PREVIOUS_VERSION -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
           if [ -n "$API_INSTANCE_ID" ]; then
+          echo "Re-applying Client ID Enforcement policy to API instance $API_INSTANCE_ID..."
             anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --organization "${{ env.ANYPOINT_ORG }}" --environment "${{ env.ANYPOINT_ENV }}" --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}' || echo "Policy re-apply returned non-zero; please re-check CLI flags/version"
           else
             echo "No API instance id available; skipping policy re-apply."
