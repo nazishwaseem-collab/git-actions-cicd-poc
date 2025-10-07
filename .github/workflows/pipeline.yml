@@ -250,7 +250,7 @@ jobs:
           #fi
 
 
-    deploy:
+  deploy:
     needs: policy-management
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
@@ -325,6 +325,7 @@ EOF
         with:
           name: last-successful-version
           path: .last_version.txt
+
 
   rollback:
     needs: deploy
