@@ -279,7 +279,7 @@ jobs:
           name: api-instance-id
           path: .
 
-       name: Set CI version
+      - name: Set CI version
         run: |
           BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
