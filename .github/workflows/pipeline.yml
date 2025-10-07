@@ -289,7 +289,7 @@ jobs:
       - name: Prepare CloudHub properties for autodiscovery
         run: |
           API_INSTANCE_ID=$(cat api_instance_id.txt)
-          echo "mule.env=${TARGET_ENV}" > cloudhub-properties.txt
+          echo "env=${TARGET_ENV}" > cloudhub-properties.txt
           echo "api.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
           echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}" >> cloudhub-properties.txt
           echo "anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}" >> cloudhub-properties.txt
@@ -323,7 +323,7 @@ jobs:
           echo "Fetched Properties from CloudHub:"
           echo "$PROPS"
 
-          REQUIRED_KEYS=("mule.env" "api.id" "anypoint.platform.client_id" "anypoint.platform.client_secret")
+          REQUIRED_KEYS=("env" "api.id" "anypoint.platform.client_id" "anypoint.platform.client_secret")
           MISSING=false
 
           for KEY in "${REQUIRED_KEYS[@]}"; do
