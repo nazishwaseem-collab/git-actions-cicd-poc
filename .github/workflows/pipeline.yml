@@ -234,7 +234,7 @@ jobs:
           fi
 
           # Get latest client-id-enforcement version from Exchange
-          LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
+          LATEST_POLICY_VERSION=$(anypoint-cli-v4 api-mgr policy list --muleVersion4OrAbove --output json | jq -r '.[] | select(.assetId=="client-id-enforcement") | .version' | sort -V | tail -n 1)
 
           # Check if policy is already applied
           ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
