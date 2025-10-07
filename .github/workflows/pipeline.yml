@@ -217,17 +217,17 @@ jobs:
             echo "API instance already exists with ID: $API_EXISTS"
           fi
           echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
-          echo "$API_EXISTS" > .api_instance_id.txt
+          echo "$API_EXISTS" > api_instance_id.txt
 
       - uses: actions/upload-artifact@v4
         with:
           name: api-instance-id
-          path: .api_instance_id.txt
+          path: api_instance_id.txt
           if-no-files-found: warn
 
       #- name: Apply Client ID Enforcement Policy (dynamic version, skip if already applied)
         #run: |
-          #API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
+          #API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
           #if [ -z "$API_INSTANCE_ID" ]; then
             #echo "No API instance ID found, skipping policy application."
             #exit 0
@@ -292,7 +292,7 @@ jobs:
         run: |
           set -e
           echo "Checking API Instance ID file..."
-          API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
+          API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
           if [ -z "$API_INSTANCE_ID" ]; then
             echo " No API instance ID found — check policy-management job"
             exit 1
@@ -310,7 +310,7 @@ jobs:
 
       - name: Deploy to CloudHub 2.0 (Auto-discoverable)
         run: |
-          API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
+          API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
           if [ -z "$API_INSTANCE_ID" ]; then
             echo "No API instance ID found, skipping deployment."
             exit 1
@@ -370,7 +370,7 @@ jobs:
       - name: Rollback to Previous Version & Reapply Policy
         run: |
           PREVIOUS_VERSION=$(cat .last_version.txt)
-          API_INSTANCE_ID=$(cat .api_instance_id.txt 2>/dev/null || true)
+          API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
           echo "Rolling back to version $PREVIOUS_VERSION (API $API_INSTANCE_ID)"
           mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dapplication.version=$PREVIOUS_VERSION -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
 
