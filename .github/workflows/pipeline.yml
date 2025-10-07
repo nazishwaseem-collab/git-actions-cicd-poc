@@ -243,7 +243,7 @@ jobs:
             echo "Policy client-id-enforcement v$LATEST_POLICY_VERSION is already applied, skipping."
           else
             echo "Applying Client ID Enforcement policy v$LATEST_POLICY_VERSION to API instance $API_INSTANCE_ID..."
-            anypoint-cli-v4 api-mgr policy apply "$API_INSTANCE_ID" client-id-enforcement --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --policyVersion $LATEST_POLICY_VERSION" --config '{"credentialsOriginHasHttpBasicAuthenticationHeader": "customExpression", "clientIdExpression":"#[attributes.headers['client_id']]", "clientSecretExpression":"#[attributes.headers['client_secret']]"}'
+            anypoint-cli-v4 api-mgr policy apply "$API_INSTANCE_ID" client-id-enforcement --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --policyVersion "$LATEST_POLICY_VERSION" --config '{"credentialsOriginHasHttpBasicAuthenticationHeader": "customExpression", "clientIdExpression":"#[attributes.headers['client_id']]", "clientSecretExpression":"#[attributes.headers['client_secret']]"}'
           fi
 
   deploy:
