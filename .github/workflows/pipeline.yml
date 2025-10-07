@@ -234,17 +234,21 @@ jobs:
           fi
 
           # Get latest client-id-enforcement version from Exchange
-          LATEST_POLICY_VERSION=$(anypoint-cli-v4 api-mgr policy list --muleVersion4OrAbove --output json | jq -r '.[] | select(.assetId=="client-id-enforcement") | .version' | sort -V | tail -n 1)
+          echo "Fetching latest client-id-enforcement policy version from Exchange..."
+          LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
+          echo "Latest policy version: $LATEST_POLICY_VERSION"
 
           # Check if policy is already applied
+          echo "Checking if policy is already applied..."
           ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
-
           if [ -n "$ALREADY_APPLIED" ]; then
             echo "Policy client-id-enforcement v$LATEST_POLICY_VERSION is already applied, skipping."
           else
-            echo "Applying Client ID Enforcement policy v$LATEST_POLICY_VERSION to API instance $API_INSTANCE_ID..."
-            anypoint-cli-v4 api-mgr policy apply "$API_INSTANCE_ID" client-id-enforcement --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --policyVersion "$LATEST_POLICY_VERSION" --config '{"credentialsOriginHasHttpBasicAuthenticationHeader": "customExpression", "clientIdExpression":"#[attributes.headers['client_id']]", "clientSecretExpression":"#[attributes.headers['client_secret']]"}'
+            echo "Applying Client ID Enforcement policy v$LATEST_POLICY_VERSION..."
+            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --policyVersion "$LATEST_POLICY_VERSION" --config '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}'
+            echo "Policy applied successfully."
           fi
+
 
   deploy:
     needs: policy-management
