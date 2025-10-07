@@ -225,9 +225,9 @@ jobs:
           if [ -z "$API_INSTANCE_ID" ]; then
             echo "No API instance ID found, skipping policy application."
           else
-            echo "Applying Client ID Enforcement policy to API instance $API_INSTANCE_ID..."
-            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --policy-parameters '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}' || echo "Policy apply failed or already applied."
+            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --param "credentialsOrigin=HTTP_BASIC_AUTHORIZATION_HEADER" || echo "Policy apply failed or already applied."
           fi
+
 
 
   deploy:
