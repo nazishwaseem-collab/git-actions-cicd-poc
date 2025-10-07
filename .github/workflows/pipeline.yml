@@ -106,7 +106,7 @@ jobs:
           # echo "Policy client-id-enforcement v$LATEST_POLICY_VERSION is already applied, skipping."
           #else
             echo "Applying Client ID Enforcement policy v$LATEST_POLICY_VERSION..."
-            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" json-thread-protection --policyVersion 1.2.0 --organization 68ef9520-24e9-4cf2-b2f5-620025690913 --environment dev
+            anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" json-thread-protection --policyVersion 1.2.0 --organization ed6db8fe-fb50-4895-b773-ea82ad95798c --environment dev
             echo "Policy applied successfully."
           fi
 
