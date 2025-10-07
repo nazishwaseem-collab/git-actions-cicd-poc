@@ -13,7 +13,9 @@ env:
 
 jobs:
   policy-management:
+    needs: upload
     runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
@@ -24,24 +26,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install CLI + jq
+      - name: Install Anypoint CLI + jq
         run: |
-          echo "Installing Anypoint CLI and jq..."
           npm install -g anypoint-cli-v4
           sudo apt-get update && sudo apt-get install -y jq
 
       - name: CLI healthcheck
         run: anypoint-cli-v4 --version
 
-      - name: Authenticate CLI
+      - name: Auth with Anypoint (non-interactive)
         run: |
-          echo "Authenticating CLI..."
-          - name: Authenticate CLI
-        run: |
-          echo "Authenticating CLI..."
           anypoint-cli-v4 conf client_id ${{ env.ANYPOINT_CLIENT_ID }}
           anypoint-cli-v4 conf client_secret "${{ env.ANYPOINT_CLIENT_SECRET }}"
           anypoint-cli-v4 conf organization "${{ env.ANYPOINT_ORG }}"
+          
           anypoint-cli-v4 account:environment:list
 
       - name: Manage API Instance
