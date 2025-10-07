@@ -187,7 +187,13 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
           API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+          if [ "${TARGET_ENV}" = "dev" ]; then
+            PREFIX="bosdev"
+          elif [ "${TARGET_ENV}" = "uat" ]; then
+            PREFIX="bosuat"
+          else
+            PREFIX="bos"
+          fi
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
@@ -226,10 +232,13 @@ jobs:
             echo "No API instance ID found, skipping policy application."
             exit 0
           fi
-        # Get latest client-id-enforcement version from Exchange
+
+          # Get latest client-id-enforcement version from Exchange
           LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
-        # Check if already applied
+
+          # Check if policy is already applied
           ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
+
           if [ -n "$ALREADY_APPLIED" ]; then
             echo "Policy client-id-enforcement v$LATEST_POLICY_VERSION is already applied, skipping."
           else
