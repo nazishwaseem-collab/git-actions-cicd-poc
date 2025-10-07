@@ -36,9 +36,6 @@ jobs:
       - name: Authenticate CLI
         run: |
           echo "Authenticating CLI..."
-          - name: Authenticate CLI
-        run: |
-          echo "Authenticating CLI..."
           anypoint-cli-v4 conf client_id ${{ env.ANYPOINT_CLIENT_ID }}
           anypoint-cli-v4 conf client_secret "${{ env.ANYPOINT_CLIENT_SECRET }}"
           anypoint-cli-v4 conf organization "${{ env.ANYPOINT_ORG }}"
