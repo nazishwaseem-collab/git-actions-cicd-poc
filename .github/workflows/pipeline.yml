@@ -290,7 +290,7 @@ jobs:
         run: |
           API_INSTANCE_ID=$(cat api_instance_id.txt)
           echo "mule.env=${TARGET_ENV}" > cloudhub-properties.txt
-          echo "api.instance.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
+          echo "api.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
           echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}" >> cloudhub-properties.txt
           echo "anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}" >> cloudhub-properties.txt
           echo "CloudHub properties:"
@@ -301,6 +301,46 @@ jobs:
           echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment"
           mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
+      - name: Validate CloudHub runtime properties
+        run: |
+          echo "Validating CloudHub runtime properties..."
+          APP_NAME=$(basename $(ls target/*.jar | head -n 1) .jar)
+          ACCESS_TOKEN=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "client_id=${ANYPOINT_CLIENT_ID}" \
+            -d "client_secret=${ANYPOINT_CLIENT_SECRET}" \
+            -d "grant_type=client_credentials" | jq -r '.access_token')
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
+            echo "Failed to obtain access token."
+            exit 1
+          fi
+
+          PROPS=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://anypoint.mulesoft.com/cloudhub/api/v2/applications/${APP_NAME}" | jq -r '.properties')
+
+          echo "Deployed Application: $APP_NAME"
+          echo "Fetched Properties from CloudHub:"
+          echo "$PROPS"
+
+          REQUIRED_KEYS=("mule.env" "api.id" "anypoint.platform.client_id" "anypoint.platform.client_secret")
+          MISSING=false
+
+          for KEY in "${REQUIRED_KEYS[@]}"; do
+            if ! echo "$PROPS" | grep -q "$KEY"; then
+              echo "Missing property: $KEY"
+              MISSING=true
+            else
+              echo "Found property: $KEY"
+            fi
+          done
+
+          if [ "$MISSING" = true ]; then
+            echo "One or more required properties are missing in CloudHub runtime."
+            exit 1
+          fi
+
+          echo "All required runtime properties verified successfully."
       - name: Save version
         if: success()
         run: echo "${NEW_VERSION}" > .last_version.txt
