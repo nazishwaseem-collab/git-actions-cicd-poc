@@ -123,9 +123,9 @@ jobs:
   upload:
     needs: [build]  # add 'test' later when enabled
     runs-on: ubuntu-latest
-    environment: ${{ needs.build.environment }}
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
-      TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}                                           
 
@@ -162,9 +162,9 @@ jobs:
   policy-management:
     needs: upload
     runs-on: ubuntu-latest
-    environment: ${{ needs.build.environment }}
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
-      TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
       ANYPOINT_ORG: ${{ secrets.ORG_ID }}
@@ -255,12 +255,13 @@ jobs:
   deploy:
     needs: policy-management
     runs-on: ubuntu-latest
-    environment: ${{ needs.build.environment }}
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
-      TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
       ANYPOINT_ORG: ${{ secrets.ORG_ID }}
+      ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     steps:
       - uses: actions/checkout@v4
 
