@@ -358,6 +358,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Download last successful version from previous successful run
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: Build, Upload, Policy Management, Deploy and Rollback Mule App
+          name: last-successful-version
+          path: .
+
+      - name: Install Anypoint CLI
+        run: npm install -g anypoint-cli-v4
 
 
       - name: Authenticate with Anypoint
@@ -378,14 +389,7 @@ jobs:
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
 
-      - name: Download last successful version from previous successful run
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: Build, Upload, Policy Management, Deploy and Rollback Mule App
-          name: last-successful-version
-          path: .
-
+      
       - name: Check and Load previous version
         run: |
           if [ ! -f .last_version.txt ]; then
