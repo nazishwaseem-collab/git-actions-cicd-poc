@@ -280,6 +280,16 @@ jobs:
           name: api-instance-id
           path: .
 
+      - name: Load API instance ID
+        run: |
+          if [ -f "api_instance_id.txt" ]; then
+            API_INSTANCE_ID=$(cat api_instance_id.txt | tr -d '\n' | tr -d '\r')
+            echo "API_INSTANCE_ID=$API_INSTANCE_ID" >> $GITHUB_ENV
+            echo "Loaded API_INSTANCE_ID=$API_INSTANCE_ID"
+          else
+            echo "Error: api_instance_id.txt not found!"
+            exit 1
+          fi
       - name: Set CI version
         run: |
           BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
@@ -296,7 +306,6 @@ jobs:
 
       - name: Prepare CloudHub properties for autodiscovery
         run: |
-          API_INSTANCE_ID=$(cat api_instance_id.txt)
           echo "env=${TARGET_ENV}" > cloudhub-properties.txt
           echo "api.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
           echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}" >> cloudhub-properties.txt
@@ -306,7 +315,7 @@ jobs:
 
       - name: Deploy to CloudHub 2.0 (env-specific)
         run: |
-          echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment"
+          echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment with API ID ${API_INSTANCE_ID}"
           echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt"
           mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
