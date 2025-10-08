@@ -87,49 +87,49 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # test:
-    # needs: build
-    # runs-on: ubuntu-latest
-    # environment: ${{ needs.build.environment.name }}
-    # env:
-      # TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
-      # NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-      # NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-      # ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      # ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
-      # ORG_ID: ${{ secrets.ORG_ID }}
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ needs.build.environment.name }}
+    env:
+      TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ORG_ID: ${{ secrets.ORG_ID }}
 
-    # steps:
-      # - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-      # - uses: actions/cache@v4
-        # with:
-          # path: ~/.m2/repository
-          # key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          # restore-keys: ${{ runner.os }}-maven-
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
 
-      # - uses: actions/download-artifact@v4
-        # with:
-          # name: mule-artifact
-          # path: target/
+      - uses: actions/download-artifact@v4
+        with:
+          name: mule-artifact
+          path: target/
 
-      # - name: Set up JDK ${{ env.JAVA_VERSION }}
-        # uses: actions/setup-java@v4
-        # with:
-          # java-version: ${{ env.JAVA_VERSION }}
-          # distribution: 'temurin'
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
 
-      # - name: Run MUnit Tests
-        # run: |
-          # echo "Running MUnit tests for environment ${TARGET_ENV}"
-          # mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Dmunit.testTimeout=60000 -Dmunit.coverageReportFormat=html
+      - name: Run MUnit Tests
+        run: |
+          echo "Running MUnit tests for environment ${TARGET_ENV}"
+          mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Dmunit.testTimeout=60000 -Dmunit.coverageReportFormat=html
 
-      # - name: Upload MUnit Reports
-        # if: always()
-        # uses: actions/upload-artifact@v4
-        # with:
-          # name: munit-reports
-          # path: target/site/munit-reports/
+      - name: Upload MUnit Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: munit-reports
+          path: target/site/munit-reports/
 
   upload:
     needs: [build]  # add 'test' later when enabled
