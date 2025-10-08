@@ -16,6 +16,7 @@
 		<app.runtime>4.9.0</app.runtime>
 		<mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
 		<munit.version>3.4.0</munit.version>
+		<api.id></api.id>
 	</properties>
 
 	<build>
@@ -57,6 +58,7 @@
 							<env>${env}</env>
 							<anypoint.platform.client_id>${anypoint.platform.client.id}</anypoint.platform.client_id>
 							<anypoint.platform.client_secret>${anypoint.platform.client.secret}</anypoint.platform.client_secret>
+							<api.id>${api.id}</api.id> <!-- autodiscovery injected from pipeline -->
 						</properties>
 					</cloudhub2Deployment>
 					<classifier>mule-application</classifier>
