@@ -42,6 +42,8 @@
 						<releaseChannel>EDGE</releaseChannel>
 						<replicas>1</replicas>
 						<vCores>0.1</vCores>
+						<connectedAppClientId>${connected.app.clientId}</connectedAppClientId>
+						<connectedAppClientSecret>${connected.app.clientSecret}</connectedAppClientSecret>
 						<skipDeploymentVerification>${skipDeploymentVerification}</skipDeploymentVerification>
 						<integrations>
 							<services>
@@ -52,6 +54,9 @@
 						</integrations>
 						<properties>
 							<mule.key>${decryption.key}</mule.key>
+							<env>${env}</env>
+							<anypoint.platform.client_id>${anypoint.platform.client.id}</anypoint.platform.client_id>
+							<anypoint.platform.client_secret>${anypoint.platform.client.secret}</anypoint.platform.client_secret>
 						</properties>
 					</cloudhub2Deployment>
 					<classifier>mule-application</classifier>

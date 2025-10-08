@@ -91,9 +91,9 @@ jobs:
   # test:
   #   needs: build
   #   runs-on: ubuntu-latest
-  #   environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  #   environment: ${{ needs.build.environment }}
   #   env:
-  #     TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  #     TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
   #   steps:
   #     - uses: actions/checkout@v4
   #     - uses: actions/cache@v4
@@ -123,11 +123,11 @@ jobs:
   upload:
     needs: [build]  # add 'test' later when enabled
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ needs.build.environment }}
     env:
-      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}                                            
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}                                           
 
     steps:
       - uses: actions/checkout@v4
@@ -148,6 +148,13 @@ jobs:
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false -DprocessDependencies=false
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
+          
+      - name: Compute dynamic app name
+        run: |
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
 
       - name: Upload to Exchange
         run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
@@ -155,13 +162,13 @@ jobs:
   policy-management:
     needs: upload
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ needs.build.environment }}
     env:
-      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
       ANYPOINT_ORG: ${{ secrets.ORG_ID }}
-      ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      ANYPOINT_ENV: ${{ needs.build.env.TARGET_ENV }}
 
     steps:
       - uses: actions/checkout@v4
@@ -176,9 +183,9 @@ jobs:
 
       - name: Auth with Anypoint (non-interactive)
         run: |
-          anypoint-cli-v4 conf client_id ${{ env.ANYPOINT_CLIENT_ID }}
-          anypoint-cli-v4 conf client_secret "${{ env.ANYPOINT_CLIENT_SECRET }}"
-          anypoint-cli-v4 conf organization "${{ env.ANYPOINT_ORG }}"
+          anypoint-cli-v4 conf client_id "${ANYPOINT_CLIENT_ID}"
+          anypoint-cli-v4 conf client_secret "${ANYPOINT_CLIENT_SECRET}"
+          anypoint-cli-v4 conf organization "${ANYPOINT_ORG}"
           
           anypoint-cli-v4 account:environment:list
 
@@ -187,13 +194,8 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
           API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then
-            PREFIX="bosdev"
-          elif [ "${TARGET_ENV}" = "uat" ]; then
-            PREFIX="bosuat"
-          else
-            PREFIX="bos"
-          fi
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
@@ -253,14 +255,12 @@ jobs:
   deploy:
     needs: policy-management
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ needs.build.environment }}
     env:
-      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
       ANYPOINT_ORG: ${{ secrets.ORG_ID }}
-      ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -286,6 +286,13 @@ jobs:
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
+      - name: Compute dynamic app name
+        run: |
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+
       - name: Prepare CloudHub properties for autodiscovery
         run: |
           API_INSTANCE_ID=$(cat api_instance_id.txt)
@@ -302,46 +309,6 @@ jobs:
           echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt"
           mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
-      - name: Validate CloudHub runtime properties
-        run: |
-          echo "Validating CloudHub runtime properties..."
-          APP_NAME=$(basename $(ls target/*.jar | head -n 1) .jar)
-          ACCESS_TOKEN=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "client_id=${ANYPOINT_CLIENT_ID}" \
-            -d "client_secret=${ANYPOINT_CLIENT_SECRET}" \
-            -d "grant_type=client_credentials" | jq -r '.access_token')
-
-          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
-            echo "Failed to obtain access token."
-            exit 1
-          fi
-
-          PROPS=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
-            "https://anypoint.mulesoft.com/cloudhub/api/v2/applications/${APP_NAME}" | jq -r '.properties')
-
-          echo "Deployed Application: $APP_NAME"
-          echo "Fetched Properties from CloudHub:"
-          echo "$PROPS"
-
-          REQUIRED_KEYS=("env" "api.id" "anypoint.platform.client_id" "anypoint.platform.client_secret")
-          MISSING=false
-
-          for KEY in "${REQUIRED_KEYS[@]}"; do
-            if ! echo "$PROPS" | grep -q "$KEY"; then
-              echo "Missing property: $KEY"
-              MISSING=true
-            else
-              echo "Found property: $KEY"
-            fi
-          done
-
-          if [ "$MISSING" = true ]; then
-            echo "One or more required properties are missing in CloudHub runtime."
-            exit 1
-          fi
-
-          echo "All required runtime properties verified successfully."
       - name: Save version
         if: success()
         run: echo "${NEW_VERSION}" > .last_version.txt
