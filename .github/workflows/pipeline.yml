@@ -359,8 +359,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: CLI healthcheck
-        run: anypoint-cli-v4 --version
 
       - name: Authenticate with Anypoint
         run: |
@@ -368,6 +366,10 @@ jobs:
           anypoint-cli-v4 conf client_secret "${{ env.ANYPOINT_CLIENT_SECRET }}"
           anypoint-cli-v4 conf organization "${{ env.ANYPOINT_ORG }}"
           anypoint-cli-v4 conf environment "${{ env.ANYPOINT_ENV }}"
+        
+      - name: CLI healthcheck
+        run: anypoint-cli-v4 --version
+
 
       - name: Compute dynamic app name
         run: |
