@@ -447,8 +447,7 @@ jobs:
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           echo "Fetching API instance ID for API Manager instance containing name: ${REPO_NAME}"
-          echo "$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select((.name | ascii_downcase) | contains($name | ascii_downcase)) | .id' | head -n 1)
-"
+          echo "$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select((.name | ascii_downcase) | contains($name | ascii_downcase)) | .id' | head -n 1)"
           # Fetch API ID using a partial match (case-insensitive)
           API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select((.name | ascii_downcase) | contains($name | ascii_downcase)) | .id' | head -n 1)
 
