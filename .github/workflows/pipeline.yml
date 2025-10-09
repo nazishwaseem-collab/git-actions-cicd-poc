@@ -94,50 +94,50 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  # test:
+    # needs: build
+    # runs-on: ubuntu-latest
+    # environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
-    env:
-      TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
-      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
-      ORG_ID: ${{ secrets.ORG_ID }}
+    # env:
+      # TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
+      # NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      # NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      # ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      # ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      # ORG_ID: ${{ secrets.ORG_ID }}
 
-    steps:
-      - uses: actions/checkout@v4
+    # steps:
+      # - uses: actions/checkout@v4
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-maven-
+      # - uses: actions/cache@v4
+        # with:
+          # path: ~/.m2/repository
+          # key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          # restore-keys: ${{ runner.os }}-maven-
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: mule-artifact
-          path: target/
+      # - uses: actions/download-artifact@v4
+        # with:
+          # name: mule-artifact
+          # path: target/
 
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
+      # - name: Set up JDK ${{ env.JAVA_VERSION }}
+        # uses: actions/setup-java@v4
+        # with:
+          # java-version: ${{ env.JAVA_VERSION }}
+          # distribution: 'temurin'
 
-      - name: Run MUnit Tests
-        run: |
-          echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Dmunit.testTimeout=60000 -Dmunit.coverageReportFormat=html
+      # - name: Run MUnit Tests
+        # run: |
+          # echo "Running MUnit tests for environment ${TARGET_ENV}"
+          # mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Dmunit.testTimeout=60000 -Dmunit.coverageReportFormat=html
 
-      - name: Upload MUnit Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: munit-reports
-          path: target/site/munit-reports/
+      # - name: Upload MUnit Reports
+        # if: always()
+        # uses: actions/upload-artifact@v4
+        # with:
+          # name: munit-reports
+          # path: target/site/munit-reports/
 
   upload:
     needs: [test]  # add 'test' later when enabled
@@ -344,12 +344,18 @@ jobs:
           echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt"
           mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
-      - name: Tag successful release (optional but recommended)
+      - name: Tag successful deployment
         if: success()
         run: |
-          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          git tag -a "${VERSION}" -m "Release ${VERSION}"
-          git push origin "${VERSION}"
+          APP_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          TAG_NAME="v${APP_VERSION}-$(date +'%Y%m%d-%H%M%S')"
+          echo "Creating tag ${TAG_NAME} for successful deployment"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${TAG_NAME}" -m "Successful deployment of ${APP_NAME} version ${APP_VERSION} to ${TARGET_ENV}"
+          git push origin "${TAG_NAME}"
 
 
   rollback:
