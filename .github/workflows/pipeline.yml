@@ -380,6 +380,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Install Anypoint CLI + jq
         run: |
           npm install -g anypoint-cli-v4
@@ -434,16 +448,34 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           echo "Fetching API instance ID for API Manager instance containing name: ${REPO_NAME}"
 
-          # Fetch the list and filter using "contains" instead of exact match
-          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select(.name | contains($name)) | .id')
+          # Fetch API ID using a partial match (case-insensitive)
+          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select((.name | ascii_downcase) | contains($name | ascii_downcase)) | .id' | head -n 1)
 
           if [ -z "$API_INSTANCE_ID" ]; then
-            echo "No API instance found for ${REPO_NAME}. Skipping autodiscovery binding."
+            echo "No API instance found containing ${REPO_NAME}. Please ensure API is managed in API Manager."
+            exit 1
           else
             echo "Found API_INSTANCE_ID=${API_INSTANCE_ID}"
             echo "API_INSTANCE_ID=${API_INSTANCE_ID}" >> $GITHUB_ENV
           fi
+          
+      - name: Prepare CloudHub properties for rollback deploy
+        run: |
+          echo "env=${TARGET_ENV}" > cloudhub-properties.txt
+          echo "api.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}" >> cloudhub-properties.txt
+          echo "Prepared CloudHub properties:"
+          cat cloudhub-properties.txt
 
+
+      - name: Redeploy stable version to CloudHub
+        run: |
+          echo "Rolling back to ${GIT_TAG} for ${APP_NAME} (API ID: ${API_INSTANCE_ID})"
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}"  -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt || {echo "Rollback failed. Verify that the Exchange asset and version ${GIT_TAG} exist."; exit 1;}
+
+      - name: Rollback complete
+        run: echo "Rollback completed successfully."
 
       - name: Redeploy stable version to CloudHub
         run: |
