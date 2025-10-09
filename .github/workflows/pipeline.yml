@@ -415,11 +415,7 @@ jobs:
               exit 1
             fi
             echo "Using artifact: $JAR_FILE"
-            # Extract version from JAR filename
-            APP_VERSION=$(basename "$JAR_FILE" | sed -E 's/.*-([0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?)-mule-application.*\.jar/\1/')
-            echo "Derived app version: $APP_VERSION"
-
-            mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dapp.version="${APP_VERSION}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt -Dmule.artifact="${JAR_FILE}"
+            mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy DmuleDeploy.skipArtifactResolution=true -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dapp.version="${LAST_VERSION}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt -Dmule.artifact="${JAR_FILE}" -Danypoint.platform.type=cloudhub
           else
             echo "No previous successful version found to roll back to."
           fi
