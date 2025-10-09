@@ -7,6 +7,10 @@ on:
       - 'release/**'   # uat environment
       - 'master'       # prod environment
   workflow_dispatch:
+    inputs:
+      GIT_TAG:
+        description: 'Git tag version to roll back to (e.g., 1.0.0)'
+        required: false
 
 permissions:
   actions: read
@@ -267,7 +271,7 @@ jobs:
 
 
   deploy:
-    needs: policy-management
+    needs: [build, policy_management]
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
@@ -276,6 +280,7 @@ jobs:
       ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
       ANYPOINT_ORG: ${{ secrets.ORG_ID }}
       ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
     steps:
       - uses: actions/checkout@v4
 
@@ -333,66 +338,42 @@ jobs:
           echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt"
           mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
-      - name: Save last successful version
+      - name: Tag successful release (optional but recommended)
         if: success()
-        run: echo "${{ env.NEW_VERSION }}" > last-successful-version.txt
-
-      - uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: last-successful-version
-          path: last-successful-version.txt
-          retention-days: 7
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          git tag -a "${VERSION}" -m "Release ${VERSION}"
+          git push origin "${VERSION}"
 
 
   rollback:
-    name: Rollback to Last Successful Version                                         
-    needs: deploy
-    if: failure()
+    name: Rollback to Tagged Stable Version
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.GIT_TAG != '' }}
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
+      GIT_TAG: ${{ github.event.inputs.GIT_TAG }}
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
-      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
       ANYPOINT_ORG: ${{ secrets.ORG_ID }}
-      ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Download last successful version from previous successful run
-        uses: dawidd6/action-download-artifact@v3
+      - name: Checkout stable release tag
+        uses: actions/checkout@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: pipeline.yml
-          name: last-successful-version
-          path: .
-          workflow_conclusion: success
-          if_no_artifact_found: warn
+          ref: ${{ env.GIT_TAG }}
 
-      # Download the Mule artifact (.jar) from the previous successful pipeline run
-      - name: Download Mule artifact from previous successful run
-        uses: dawidd6/action-download-artifact@v3
+      - name: Set up JDK
+        uses: actions/setup-java@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: pipeline.yml
-          name: mule-artifact
-          path: target/
-          workflow_conclusion: success
-          if_no_artifact_found: error
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
 
-      - name: Download API instance ID from previous successful run
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: pipeline.yml
-          name: api-instance-id
-          path: .
-          workflow_conclusion: success
-          if_no_artifact_found: warn
+      - name: Rebuild Mule Artifact from Tag
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
 
       - name: Compute dynamic app name
         run: |
@@ -401,24 +382,21 @@ jobs:
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
 
-      - name: Rollback to Previous Version
+      - name: Fetch API Instance ID (for autodiscovery)
         run: |
-          if [ -f last-successful-version.txt ]; then
-            LAST_VERSION=$(cat last-successful-version.txt)
-            API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
-            echo "Rolling back to ${LAST_VERSION} for ${APP_NAME} (API ID: ${API_INSTANCE_ID})"
- 
-            # find the actual JAR file in target folder
-            JAR_FILE=$(find target -type f -name "*.jar" | head -n 1)
-            if [ -z "$JAR_FILE" ]; then
-              echo "No JAR found in target/. Rollback aborted."
-              exit 1
-            fi
-            echo "Using artifact: $JAR_FILE"
-            mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy DmuleDeploy.skipArtifactResolution=true -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dapp.version="${LAST_VERSION}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt -Dmule.artifact="${JAR_FILE}" -Danypoint.platform.type=cloudhub
+          echo "Fetching API instance ID for ${APP_NAME}..."
+          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${APP_NAME}" '.[] | select(.name==$name) | .id')
+          if [ -z "$API_INSTANCE_ID" ]; then
+            echo "No API instance found for ${APP_NAME}. Skipping autodiscovery binding."
           else
-            echo "No previous successful version found to roll back to."
+            echo "API_INSTANCE_ID=$API_INSTANCE_ID" >> $GITHUB_ENV
           fi
+
+      - name: Redeploy stable version to CloudHub
+        run: |
+          JAR_FILE=$(find target -type f -name "*.jar" | head -n 1)
+          echo "Re-deploying ${APP_NAME} version ${GIT_TAG} using artifact ${JAR_FILE}"
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt -Dmule.artifact="${JAR_FILE}"
 
 
             # if [ -n "$API_INSTANCE_ID" ]; then
