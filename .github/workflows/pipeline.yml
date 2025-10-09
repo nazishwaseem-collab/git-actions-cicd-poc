@@ -373,11 +373,15 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: warn
 
-      - name: Download API instance ID
-        uses: actions/download-artifact@v4
+      - name: Download API instance ID from previous successful run
+        uses: dawidd6/action-download-artifact@v3
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: pipeline.yml
           name: api-instance-id
           path: .
+          workflow_conclusion: success
+          if_no_artifact_found: warn
 
       - name: Compute dynamic app name
         run: |
