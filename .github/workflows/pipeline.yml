@@ -368,10 +368,10 @@ jobs:
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
     steps:
-     - name: Checkout full history
-       uses: actions/checkout@v4
-       with:
-         fetch-depth: 0
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Find last successful tag
         id: find_tag
