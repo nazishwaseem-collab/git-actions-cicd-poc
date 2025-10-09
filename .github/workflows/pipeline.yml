@@ -372,6 +372,17 @@ jobs:
           path: .
           workflow_conclusion: success
           if_no_artifact_found: warn
+          
+      # Download the Mule artifact (.jar) from the previous successful pipeline run
+      - name: Download Mule artifact from previous successful run
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: Build, Upload, Policy Management, Deploy and Rollback Mule App
+          name: mule-artifact
+          path: target/
+          workflow_conclusion: success
+          if_no_artifact_found: error
 
       - name: Download API instance ID from previous successful run
         uses: dawidd6/action-download-artifact@v3
@@ -392,10 +403,10 @@ jobs:
 
       - name: Rollback to Previous Version
         run: |
-          API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
           if [ -f last-successful-version.txt ]; then
             LAST_VERSION=$(cat last-successful-version.txt)
-            echo "Rolling back to $LAST_VERSION for ${APP_NAME} (API: ${API_INSTANCE_ID})"
+            API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
+            echo "Rolling back to ${LAST_VERSION} for ${APP_NAME} (API ID: ${API_INSTANCE_ID})"
             mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dapp.version="${LAST_VERSION}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
           else
             echo "No previous successful version found to roll back to."
