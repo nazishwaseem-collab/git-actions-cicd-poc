@@ -130,7 +130,8 @@ jobs:
       - name: Run MUnit Tests
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Dmunit.testTimeout=60000 -Dmunit.coverageReportFormat=html
+          mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Dmunit.testTimeout=60000 -Dmunit.coverage
+          rtFormat=html
 
       - name: Upload MUnit Reports
         if: always()
@@ -431,10 +432,11 @@ jobs:
 
       - name: Fetch API Instance ID (for autodiscovery)
         run: |
-          echo "Fetching API instance ID for ${APP_NAME}..."
-          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${APP_NAME}" '.[] | select(.name==$name) | .id')
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          echo "Fetching API instance ID for ${REPO_NAME}..."
+          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select(.name==$name) | .id')
           if [ -z "$API_INSTANCE_ID" ]; then
-            echo "No API instance found for ${APP_NAME}. Skipping autodiscovery binding."
+            echo "No API instance found for ${REPO_NAME}. Skipping autodiscovery binding."
           else
             echo "API_INSTANCE_ID=$API_INSTANCE_ID" >> $GITHUB_ENV
           fi
