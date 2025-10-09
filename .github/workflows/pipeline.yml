@@ -429,7 +429,6 @@ jobs:
           if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
-
       - name: Fetch API Instance ID (for autodiscovery)
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
