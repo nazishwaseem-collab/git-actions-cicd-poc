@@ -8,6 +8,9 @@ on:
       - 'master'       # prod environment
   workflow_dispatch:
 
+permissions:
+  actions: read
+  contents: read
 env:
   JAVA_VERSION: '17'																																	 
 
@@ -332,17 +335,18 @@ jobs:
 
       - name: Save last successful version
         if: success()
-        run: echo "${NEW_VERSION}" > .last_version.txt
+        run: echo "${{ env.NEW_VERSION }}" > last-successful-version.txt
 
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: last-successful-version
-          path: .last_version.txt
+          path: last-successful-version.txt
           retention-days: 7
 
 
   rollback:
+    name: Rollback to Last Successful Version                                         
     needs: deploy
     if: failure()
     runs-on: ubuntu-latest
@@ -358,29 +362,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Download last successful version from previous successful run
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: Build, Upload, Policy Management, Deploy and Rollback Mule App
+          workflow: pipeline.yml
           name: last-successful-version
           path: .
+          workflow_conclusion: success
+          if_no_artifact_found: warn
 
-      - name: Install Anypoint CLI
-        run: npm install -g anypoint-cli-v4
-
-
-      - name: Authenticate with Anypoint
-        run: |
-          anypoint-cli-v4 conf client_id "${{ env.ANYPOINT_CLIENT_ID }}"
-          anypoint-cli-v4 conf client_secret "${{ env.ANYPOINT_CLIENT_SECRET }}"
-          anypoint-cli-v4 conf organization "${{ env.ANYPOINT_ORG }}"
-          anypoint-cli-v4 conf environment "${{ env.ANYPOINT_ENV }}"
-        
-      - name: CLI healthcheck
-        run: anypoint-cli-v4 --version
-
+      - name: Download API instance ID
+        uses: actions/download-artifact@v4
+        with:
+          name: api-instance-id
+          path: .
 
       - name: Compute dynamic app name
         run: |
@@ -389,27 +386,29 @@ jobs:
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
 
-      
-      - name: Check and Load previous version
+      - name: Rollback to last successful version
         run: |
-          if [ ! -f .last_version.txt ]; then
-            echo "No previous successful version found. Rollback skipped."
-            exit 0
+          if [ -f last-successful-version.txt ]; then
+            LAST_VERSION=$(cat last-successful-version.txt)
+            echo "Rolling back to $LAST_VERSION"
+            mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy \
+              -Dapp.name="${APP_NAME}" -Dapp.version="${LAST_VERSION}" \
+              -Dapi.id="$(cat api_instance_id.txt 2>/dev/null || true)"
+          else
+            echo "⚠️ No previous successful version found to roll back to."
           fi
-          PREVIOUS_VERSION=$(cat .last_version.txt)
-          echo "Rolling back to version: $PREVIOUS_VERSION"
-          echo "PREVIOUS_VERSION=$PREVIOUS_VERSION" >> $GITHUB_ENV
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: api-instance-id
-          path: .
 
       - name: Rollback to Previous Version
         run: |
           API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
-          echo "Initiating rollback to version ${PREVIOUS_VERSION} for ${APP_NAME} (API: ${API_INSTANCE_ID})"
-          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dapp.version="${PREVIOUS_VERSION}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+          if [ -f last-successful-version.txt ]; then
+            LAST_VERSION=$(cat last-successful-version.txt)
+            echo "Rolling back to $LAST_VERSION for ${APP_NAME} (API: ${API_INSTANCE_ID})"
+            mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dapp.version="${LAST_VERSION}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+         else
+            echo "⚠️ No previous successful version found to roll back to."
+          fi
 
           # if [ -n "$API_INSTANCE_ID" ]; then
             # LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
