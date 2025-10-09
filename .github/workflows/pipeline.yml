@@ -271,7 +271,7 @@ jobs:
 
 
   deploy:
-    needs: [test]
+    needs: policy-management
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
@@ -349,6 +349,7 @@ jobs:
 
   rollback:
     name: Rollback to Tagged Stable Version
+    needs: deploy
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.GIT_TAG != '' }}
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
