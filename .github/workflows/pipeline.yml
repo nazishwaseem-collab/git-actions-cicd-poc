@@ -432,14 +432,16 @@ jobs:
 
       - name: Fetch API Instance ID (for autodiscovery)
         run: |
-          REPO_NAME="${GITHUB_REPOSITORY##*/}"
-          echo "Fetching API instance ID for ${REPO_NAME}..."
-          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select(.name==$name) | .id')
-          if [ -z "$API_INSTANCE_ID" ]; then
-            echo "No API instance found for ${REPO_NAME}. Skipping autodiscovery binding."
-          else
-            echo "API_INSTANCE_ID=$API_INSTANCE_ID" >> $GITHUB_ENV
-          fi
+         REPO_NAME="${GITHUB_REPOSITORY##*/}"
+         echo "Fetching API instance ID for API Manager instance named: ${REPO_NAME}"
+        # Fetch API instance ID
+         API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select(.name==$name) | .id')
+         if [ -z "$API_INSTANCE_ID" ]; then
+           echo "No API instance found for ${REPO_NAME}. Skipping autodiscovery binding."
+         else
+           echo "Found API_INSTANCE_ID=${API_INSTANCE_ID}"
+           echo "API_INSTANCE_ID=${API_INSTANCE_ID}" >> $GITHUB_ENV
+         fi
 
       - name: Redeploy stable version to CloudHub
         run: |
