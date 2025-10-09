@@ -433,8 +433,8 @@ jobs:
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           echo "Fetching API instance ID for API Manager instance named: ${REPO_NAME}"
-        # Fetch API instance ID
-          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select(.name==$name) | .id')
+          # Fetch API instance ID
+          API_INSTANCE_ID = $(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg name "${REPO_NAME}" '.[] | select(.name==$name) | .id')
           if [ -z "$API_INSTANCE_ID" ]; then
             echo "No API instance found for ${REPO_NAME}. Skipping autodiscovery binding."
           else
