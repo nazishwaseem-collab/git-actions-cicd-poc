@@ -17,7 +17,7 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<logger level="INFO" doc:name="Log encrypted property" doc:id="91d0a5ca-1876-4758-bb4a-e35e5974f934" message="#[&quot;my secure property : &quot; ++ p('secure::encrypted.property')]"/>
+		<logger level="INFO" doc:name="Log encrypted property" doc:id="91d0a5ca-1876-4758-bb4a-e35e5974f934" message="#[&quot;my secure property :  &quot; ++ p('secure::encrypted.property')]"/>
 		<logger level="INFO" doc:name="End Logger" doc:id="f865966b-dfe4-4432-93a1-965d5afbf099" message='#["test-flow-completed"]'/>
 	</flow>
 </mule>
