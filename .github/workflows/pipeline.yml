@@ -97,7 +97,8 @@ jobs:
   test:
     needs: build
     runs-on: ubuntu-latest
-    environment: ${{ needs.build.environment.name }}
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+
     env:
       TARGET_ENV: ${{ needs.build.env.TARGET_ENV }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
@@ -145,7 +146,10 @@ jobs:
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}                                           
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}      
 
     steps:
       - uses: actions/checkout@v4
@@ -271,6 +275,7 @@ jobs:
 
 
   deploy:
+    name: Deploy Mule App to CloudHub 2.0
     needs: policy-management
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
@@ -351,7 +356,7 @@ jobs:
     name: Rollback to Tagged Stable Version
     needs: deploy
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.GIT_TAG != '' }}
+    if: failure()
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
       GIT_TAG: ${{ github.event.inputs.GIT_TAG }}
@@ -363,10 +368,29 @@ jobs:
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
     steps:
-      - name: Checkout stable release tag
+     - name: Checkout full history
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.GIT_TAG }}
+          fetch-depth: 0
+
+      - name: Find last successful tag
+        id: find_tag
+        run: |
+          LAST_TAG=$(git tag --sort=-creatordate | head -n 1)
+          echo "Found last successful tag: $LAST_TAG"
+          echo "GIT_TAG=$LAST_TAG" >> $GITHUB_ENV
+
+      - name: Validate tag exists
+        run: |
+          if [ -z "${GIT_TAG}" ]; then
+            echo "No previous tag found, cannot roll back safely."
+            exit 1
+          else
+            echo "Rolling back to tag: ${GIT_TAG}"
+          fi
+
+      - name: Checkout stable tag
+        run: git checkout tags/${GIT_TAG}                                  
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -396,9 +420,8 @@ jobs:
 
       - name: Redeploy stable version to CloudHub
         run: |
-          JAR_FILE=$(find target -type f -name "*.jar" | head -n 1)
-          echo "Re-deploying ${APP_NAME} version ${GIT_TAG} using artifact ${JAR_FILE}"
-          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt -Dmule.artifact="${JAR_FILE}"
+          echo "Rolling back to ${GIT_TAG} for ${APP_NAME} (API ID: ${API_INSTANCE_ID})"
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt -f target/*.jar
 
 
             # if [ -n "$API_INSTANCE_ID" ]; then
