@@ -493,35 +493,22 @@ jobs:
           # Publish to Exchange
           mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}"
 
-      - name: Get deployment target ID
+      - name: Prepare CloudHub properties for autodiscovery
         run: |
-          echo "Listing all applications to find existing deployment..."
-          APP_INFO=$(anypoint-cli-v4 runtime-mgr:application:list --environment "${TARGET_ENV}" --output json | jq -r --arg name "${APP_NAME}" '.[] | select(.name==$name)')
-          
-          if [ -z "$APP_INFO" ]; then
-            echo "ERROR: Application ${APP_NAME} not found in ${TARGET_ENV}. Cannot perform rollback."
-            echo "Available applications:"
-            anypoint-cli-v4 runtime-mgr:application:list --environment "${TARGET_ENV}" --output table
-            exit 1
-          fi
-          
-          APP_ID=$(echo "$APP_INFO" | jq -r '.id')
-          TARGET_ID=$(echo "$APP_INFO" | jq -r '.target.targetId')
-          
-          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
-          echo "TARGET_ID=$TARGET_ID" >> $GITHUB_ENV
-          echo "Found App ID: $APP_ID, Target ID: $TARGET_ID"
+          echo "env=${TARGET_ENV}" > cloudhub-properties.txt
+          echo "api.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" >> cloudhub-properties.txt
+          cat cloudhub-properties.txt
 
-      - name: Deploy rollback version using Anypoint CLI
-        run: |
-          echo "Deploying rollback version ${ROLLBACK_VERSION} for ${APP_NAME}"
-          
-          anypoint-cli-v4 runtime-mgr:application:deploy "${APP_NAME}" "${TARGET_ID}" "4.9.0" "${GROUP_ID}:${ARTIFACT_ID}" --environment "${TARGET_ENV}" --artifact "${ROLLBACK_VERSION}" --replica 1 --vcore 0.1 --java-version "17" --release-channel "EDGE" --enable-object-store-v2 --property "env=${TARGET_ENV}" --property "api.id=${API_INSTANCE_ID}" --property "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" --property "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" --secure-property "mule.key=${DCRYP_KEY}" || { echo "Rollback deployment failed."; exit 1; }
-          
-          echo "Rollback deployment completed successfully."
-          
-      - name: Rollback complete
-        run: echo "Rollback to ${GIT_TAG} completed with version ${ROLLBACK_VERSION}."
+
+      - name: Deploy rollback version using Maven
+      run: |
+        echo "Deploying rollback version ${ROLLBACK_VERSION} for ${APP_NAME}"
+        mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+
+    - name: Rollback complete
+      run: echo "Rollback to ${GIT_TAG} completed with version ${ROLLBACK_VERSION}."
             # if [ -n "$API_INSTANCE_ID" ]; then
             # LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
             # ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
