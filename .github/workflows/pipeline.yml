@@ -516,7 +516,7 @@ jobs:
         run: |
           echo "Deploying rollback version ${ROLLBACK_VERSION} for ${APP_NAME}"
           
-          anypoint-cli-v4 runtime-mgr:application:deploy "${APP_NAME}" "${TARGET_ID}" "4.9.0" "${GROUP_ID}:${ARTIFACT_ID}" --environment "${TARGET_ENV}" --artifactVersion "${ROLLBACK_VERSION}" --replicas 1 --vCores 0.1 --javaVersion "17" --releaseChannel "EDGE" --enableObjectStoreV2 --property "env=${TARGET_ENV}" --property "api.id=${API_INSTANCE_ID}" --property "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" --property "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" --secureProperty "mule.key=${DCRYP_KEY}" || { echo "Rollback deployment failed."; exit 1; }
+          anypoint-cli-v4 runtime-mgr:application:deploy "${APP_NAME}" "${TARGET_ID}" "4.9.0" "${GROUP_ID}:${ARTIFACT_ID}" --environment "${TARGET_ENV}" --artifact "${ROLLBACK_VERSION}" --replica 1 --vcore 0.1 --java-version "17" --release-channel "EDGE" --enable-object-store-v2 --property "env=${TARGET_ENV}" --property "api.id=${API_INSTANCE_ID}" --property "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" --property "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" --secure-property "mule.key=${DCRYP_KEY}" || { echo "Rollback deployment failed."; exit 1; }
           
           echo "Rollback deployment completed successfully."
           
