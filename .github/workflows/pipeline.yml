@@ -458,7 +458,6 @@ jobs:
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           echo "Fetching API instance ID for API Manager instance containing name: ${REPO_NAME} in environment: ${TARGET_ENV}"
-
           echo "Listing available APIs in ${TARGET_ENV}..."
           anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output table || true
 
@@ -503,12 +502,12 @@ jobs:
 
 
       - name: Deploy rollback version using Maven
-      run: |
-        echo "Deploying rollback version ${ROLLBACK_VERSION} for ${APP_NAME}"
-        mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+        run: |
+          echo "Deploying rollback version ${ROLLBACK_VERSION} for ${APP_NAME}"
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
-    - name: Rollback complete
-      run: echo "Rollback to ${GIT_TAG} completed with version ${ROLLBACK_VERSION}."
+      - name: Rollback complete
+        run: echo "Rollback to ${GIT_TAG} completed with version ${ROLLBACK_VERSION}."
             # if [ -n "$API_INSTANCE_ID" ]; then
             # LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
             # ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
