@@ -442,17 +442,20 @@ jobs:
 
       - name: Compute dynamic app name
         run: |
+          run: |
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          GROUP_ID=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout)
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
           APP_NAME="${PREFIX}-${ARTIFACT_ID}"
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
+          echo "GROUP_ID=$GROUP_ID" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV                                                       
       - name: Fetch API Instance ID (for autodiscovery)
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           echo "Fetching API instance ID for API Manager instance containing name: ${REPO_NAME} in environment: ${TARGET_ENV}"
-
-          # Set CLI environment correctly
-          anypoint-cli-v4 conf:set environment "${TARGET_ENV}"
 
           echo "Listing available APIs in ${TARGET_ENV}..."
           anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output table || true
@@ -470,17 +473,14 @@ jobs:
             echo "API_INSTANCE_ID=${API_INSTANCE_ID}" >> $GITHUB_ENV
           fi
 
-      - name: Get Deployment Target ID
+      - name: Publish rollback artifact to Exchange
         run: |
-          echo "Fetching deployment target ID for Cloudhub-US-East-2..."
-          TARGET_ID=$(anypoint-cli-v4 runtime-mgr:target:list --output json | jq -r '.[] | select(.name=="Cloudhub-US-East-2") | .id')
-          if [ -z "$TARGET_ID" ]; then
-            echo "Could not find target ID for Cloudhub-US-East-2"
-            anypoint-cli-v4 runtime-mgr:target:list --output table
+          echo "Publishing rollback artifact to Exchange..."
+          ARTIFACT_JAR=$(find target -type f -name "*.jar" | head -n 1)
+          if [ -z "$ARTIFACT_JAR" ]; then
+            echo "No artifact found to publish"
             exit 1
           fi
-          echo "TARGET_ID=$TARGET_ID" >> $GITHUB_ENV
-          echo "Found Target ID: $TARGET_ID"
 
       - name: Publish to Exchange as rollback version
         run: |
@@ -492,41 +492,44 @@ jobs:
           fi
           echo "Found artifact: $ARTIFACT_JAR"
           
-          # Create a unique rollback version tag
+          # Create a unique rollback version
           ROLLBACK_VERSION="${VERSION}-rollback-$(date +%s)"
           echo "ROLLBACK_VERSION=$ROLLBACK_VERSION" >> $GITHUB_ENV
+          echo "Publishing as ${GROUP_ID}:${ARTIFACT_ID}:${ROLLBACK_VERSION}"
           
-          # Publish to Exchange using Maven
-          mvn -B deploy:deploy-file -s .maven/settings.xml -DgroupId="${GROUP_ID}" -DartifactId="${ARTIFACT_ID}" -Dversion="${ROLLBACK_VERSION}" -Dpackaging=jar -Dclassifier=mule-application -Dfile="${ARTIFACT_JAR}" -DrepositoryId=anypoint-exchange-v3 -Durl="https://maven.anypoint.mulesoft.com/api/v3/organizations/${ANYPOINT_ORG}/maven" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}"
+          # Publish to Exchange
+          mvn -B deploy:deploy-file -s .maven/settings.xml -DgroupId="${GROUP_ID}" -DartifactId="${ARTIFACT_ID}" -Dversion="${ROLLBACK_VERSION}" -Dpackaging=jar -Dclassifier=mule-application -Dfile="${ARTIFACT_JAR}" -DrepositoryId=anypoint-exchange-v3 -Durl="https://maven.anypoint.mulesoft.com/api/v3/organizations/${ANYPOINT_ORG}/maven" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}"
 
-      - name: Deploy rollback version from Exchange
+      - name: Get deployment target ID
         run: |
-          echo "Deploying rollback version ${ROLLBACK_VERSION} to ${APP_NAME}"
+          echo "Listing all applications to find existing deployment..."
+          APP_INFO=$(anypoint-cli-v4 runtime-mgr:application:list --environment "${TARGET_ENV}" --output json | jq -r --arg name "${APP_NAME}" '.[] | select(.name==$name)')
           
-          anypoint-cli-v4 runtime-mgr:application:deploy \
-            "${APP_NAME}" \
-            "${TARGET_ID}" \
-            "4.9.0" \
-            "${GROUP_ID}:${ARTIFACT_ID}" \
-            --environment "${TARGET_ENV}" \
-            --artifactVersion "${ROLLBACK_VERSION}" \
-            --replicas 1 \
-            --vCores 0.1 \
-            --javaVersion "17" \
-            --releaseChannel "EDGE" \
-            --enableObjectStoreV2 \
-            --property "env=${TARGET_ENV}" \
-            --property "api.id=${API_INSTANCE_ID}" \
-            --property "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" \
-            --property "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" \
-            --secureProperty "mule.key=${DCRYP_KEY}" \
-            || { echo "Rollback deployment failed."; exit 1; }
+          if [ -z "$APP_INFO" ]; then
+            echo "ERROR: Application ${APP_NAME} not found in ${TARGET_ENV}. Cannot perform rollback."
+            echo "Available applications:"
+            anypoint-cli-v4 runtime-mgr:application:list --environment "${TARGET_ENV}" --output table
+            exit 1
+          fi
           
-          echo "Rollback deployment initiated successfully."
+          APP_ID=$(echo "$APP_INFO" | jq -r '.id')
+          TARGET_ID=$(echo "$APP_INFO" | jq -r '.target.targetId')
+          
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+          echo "TARGET_ID=$TARGET_ID" >> $GITHUB_ENV
+          echo "Found App ID: $APP_ID, Target ID: $TARGET_ID"
+
+      - name: Deploy rollback version using Anypoint CLI
+        run: |
+          echo "Deploying rollback version ${ROLLBACK_VERSION} for ${APP_NAME}"
+          
+          anypoint-cli-v4 runtime-mgr:application:deploy "${APP_NAME}" "${TARGET_ID}" "4.9.0" "${GROUP_ID}:${ARTIFACT_ID}" --environment "${TARGET_ENV}" --artifactVersion "${ROLLBACK_VERSION}" --replicas 1 --vCores 0.1 --javaVersion "17" --releaseChannel "EDGE" --enableObjectStoreV2 --property "env=${TARGET_ENV}" --property "api.id=${API_INSTANCE_ID}" --property "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" --property "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" --secureProperty "mule.key=${DCRYP_KEY}" || { echo "Rollback deployment failed."; exit 1; }
+          
+          echo "Rollback deployment completed successfully."
           
       - name: Rollback complete
-        run: echo "Rollback to ${GIT_TAG} completed successfully with version ${ROLLBACK_VERSION}."
-
+        run: echo "Rollback to ${GIT_TAG} completed with version ${ROLLBACK_VERSION}."
+	
             # if [ -n "$API_INSTANCE_ID" ]; then
             # LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
             # ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
