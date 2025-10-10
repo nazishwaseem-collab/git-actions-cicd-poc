@@ -383,14 +383,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
 
       - name: Configure Git
         run: |
@@ -472,9 +475,9 @@ jobs:
             echo "API_INSTANCE_ID=${API_INSTANCE_ID}" >> $GITHUB_ENV
           fi
 
-      - name: Publish rollback artifact to Exchange
+      - name: Update version for rollback and publish to Exchange
         run: |
-          echo "Publishing rollback artifact to Exchange..."
+          echo "Creating rollback version for Exchange..."
           ARTIFACT_JAR=$(find target -type f -name "*.jar" | head -n 1)
           if [ -z "$ARTIFACT_JAR" ]; then
             echo "No artifact found to publish"
@@ -485,9 +488,10 @@ jobs:
           ROLLBACK_VERSION="${VERSION}-rollback-$(date +%s)"
           echo "ROLLBACK_VERSION=$ROLLBACK_VERSION" >> $GITHUB_ENV
           echo "Publishing as ${GROUP_ID}:${ARTIFACT_ID}:${ROLLBACK_VERSION}"
+          mvn -B versions:set -DnewVersion="${ROLLBACK_VERSION}" -DgenerateBackupPoms=false
           
           # Publish to Exchange
-          mvn -B deploy:deploy-file -s .maven/settings.xml -DgroupId="${GROUP_ID}" -DartifactId="${ARTIFACT_ID}" -Dversion="${ROLLBACK_VERSION}" -Dpackaging=jar -Dclassifier=mule-application -Dfile="${ARTIFACT_JAR}" -DrepositoryId=anypoint-exchange-v3 -Durl="https://maven.anypoint.mulesoft.com/api/v3/organizations/${ANYPOINT_ORG}/maven" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}"
+          mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}"
 
       - name: Get deployment target ID
         run: |
