@@ -446,7 +446,8 @@ jobs:
       - name: Fetch API Instance ID (for autodiscovery)
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
-          echo "Fetching API instance ID for API Manager instance containing name: ${REPO_NAME} in environment: ${TARGET_ENV}
+          echo "Fetching API instance ID for API Manager instance containing name: ${REPO_NAME} in environment: ${TARGET_ENV}"
+
           # Make sure CLI targets the correct environment
           anypoint-cli-v4 config:set environment "${TARGET_ENV}"
 
@@ -454,7 +455,7 @@ jobs:
           anypoint-cli-v4 config:list
 
           # Fetch API ID using partial match (case-insensitive)
-          echo "anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output json"
+          anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output json
           API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output json | jq -r --arg name "${REPO_NAME}" '.[] | select((.name | ascii_downcase) | contains($name | ascii_downcase)) | .id' | head -n 1)
           if [ -z "$API_INSTANCE_ID" ]; then
             echo "No API instance found containing ${REPO_NAME} in ${TARGET_ENV} environment."
