@@ -448,17 +448,17 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           echo "Fetching API instance ID for API Manager instance containing name: ${REPO_NAME} in environment: ${TARGET_ENV}"
 
-          # Make sure CLI targets the correct environment
-          anypoint-cli-v4 config:set environment "${TARGET_ENV}"
+          # Set CLI environment correctly
+          anypoint-cli-v4 conf:set environment "${TARGET_ENV}"
 
-          # Optional: show current env for debug
-          anypoint-cli-v4 config:list
+          echo "Listing available APIs in ${TARGET_ENV}..."
+          anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output table || true
 
-          # Fetch API ID using partial match (case-insensitive)
-          anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output json
-          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output json | jq -r --arg name "${REPO_NAME}" '.[] | select((.name | ascii_downcase) | contains($name | ascii_downcase)) | .id' | head -n 1)
+          # Fetch API ID safely (case-insensitive match on assetId or name)
+          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output json | jq -r --arg name "${REPO_NAME}" 'map(select(((.name // .assetId) | tostring | ascii_downcase) | contains($name | ascii_downcase)))[0].id // empty')
+
           if [ -z "$API_INSTANCE_ID" ]; then
-            echo "No API instance found containing ${REPO_NAME} in ${TARGET_ENV} environment."
+            echo "No API instance found matching '${REPO_NAME}' in '${TARGET_ENV}' environment."
             echo "Available APIs for debug:"
             anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output table || true
             exit 1
