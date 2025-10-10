@@ -470,25 +470,62 @@ jobs:
             echo "API_INSTANCE_ID=${API_INSTANCE_ID}" >> $GITHUB_ENV
           fi
 
-      - name: Redeploy stable version to CloudHub (local artifact rollback)
+      - name: Get Deployment Target ID
         run: |
-          echo "Rolling back to ${GIT_TAG} for ${APP_NAME} (API ID: ${API_INSTANCE_ID})"
+          echo "Fetching deployment target ID for Cloudhub-US-East-2..."
+          TARGET_ID=$(anypoint-cli-v4 runtime-mgr:target:list --output json | jq -r '.[] | select(.name=="Cloudhub-US-East-2") | .id')
+          if [ -z "$TARGET_ID" ]; then
+            echo "Could not find target ID for Cloudhub-US-East-2"
+            anypoint-cli-v4 runtime-mgr:target:list --output table
+            exit 1
+          fi
+          echo "TARGET_ID=$TARGET_ID" >> $GITHUB_ENV
+          echo "Found Target ID: $TARGET_ID"
 
-          # Verify artifact exists before deploy
-          echo "Checking built artifact..."
-          ls -lh target || true
+      - name: Publish to Exchange as rollback version
+        run: |
+          echo "Publishing rollback artifact to Exchange..."
           ARTIFACT_JAR=$(find target -type f -name "*.jar" | head -n 1)
           if [ -z "$ARTIFACT_JAR" ]; then
-            echo "No built Mule artifact found in target/. Please check build step."
+            echo "No artifact found to publish"
             exit 1
           fi
           echo "Found artifact: $ARTIFACT_JAR"
-          echo "Rolling back to ${GIT_TAG} for ${APP_NAME} (API ID: ${API_INSTANCE_ID})"
-          # mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Denv="${TARGET_ENV}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dmule.application.path="${ARTIFACT_JAR}" -Dcloudhub2.applicationName="${APP_NAME}" -Dcloudhub2.deploymentType=cloudhub2 -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt || { echo "Rollback failed. Verify that the Exchange asset and version ${GIT_TAG} exist."; exit 1; }
-          anypoint-cli-v4 runtime-mgr:cloudhub2:application:deploy --name "${APP_NAME}" --target "Cloudhub-US-East-2" --provider MC --replicas 1 --cores 0.1 --runtime-version "4.9.0" --java-version "17" --environment "${TARGET_ENV}" --artifact "${ARTIFACT_JAR}" --property "env=${TARGET_ENV}" --property "api.id=${API_INSTANCE_ID}" --property "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" --property "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" --secure-property "mule.key=${DCRYP_KEY}" || { echo "Rollback deployment failed."; exit 1; }
+          
+          # Create a unique rollback version tag
+          ROLLBACK_VERSION="${VERSION}-rollback-$(date +%s)"
+          echo "ROLLBACK_VERSION=$ROLLBACK_VERSION" >> $GITHUB_ENV
+          
+          # Publish to Exchange using Maven
+          mvn -B deploy:deploy-file -s .maven/settings.xml -DgroupId="${GROUP_ID}" -DartifactId="${ARTIFACT_ID}" -Dversion="${ROLLBACK_VERSION}" -Dpackaging=jar -Dclassifier=mule-application -Dfile="${ARTIFACT_JAR}" -DrepositoryId=anypoint-exchange-v3 -Durl="https://maven.anypoint.mulesoft.com/api/v3/organizations/${ANYPOINT_ORG}/maven" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}"
+
+      - name: Deploy rollback version from Exchange
+        run: |
+          echo "Deploying rollback version ${ROLLBACK_VERSION} to ${APP_NAME}"
+          
+          anypoint-cli-v4 runtime-mgr:application:deploy \
+            "${APP_NAME}" \
+            "${TARGET_ID}" \
+            "4.9.0" \
+            "${GROUP_ID}:${ARTIFACT_ID}" \
+            --environment "${TARGET_ENV}" \
+            --artifactVersion "${ROLLBACK_VERSION}" \
+            --replicas 1 \
+            --vCores 0.1 \
+            --javaVersion "17" \
+            --releaseChannel "EDGE" \
+            --enableObjectStoreV2 \
+            --property "env=${TARGET_ENV}" \
+            --property "api.id=${API_INSTANCE_ID}" \
+            --property "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" \
+            --property "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" \
+            --secureProperty "mule.key=${DCRYP_KEY}" \
+            || { echo "Rollback deployment failed."; exit 1; }
+          
+          echo "Rollback deployment initiated successfully."
           
       - name: Rollback complete
-        run: echo "Rollback completed successfully."
+        run: echo "Rollback to ${GIT_TAG} completed successfully with version ${ROLLBACK_VERSION}."
 
             # if [ -n "$API_INSTANCE_ID" ]; then
             # LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
