@@ -438,7 +438,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Rebuild Mule Artifact from Tag
-        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}"
 
       - name: Compute dynamic app name
         run: |
@@ -481,16 +481,6 @@ jobs:
             echo "No artifact found to publish"
             exit 1
           fi
-
-      - name: Publish to Exchange as rollback version
-        run: |
-          echo "Publishing rollback artifact to Exchange..."
-          ARTIFACT_JAR=$(find target -type f -name "*.jar" | head -n 1)
-          if [ -z "$ARTIFACT_JAR" ]; then
-            echo "No artifact found to publish"
-            exit 1
-          fi
-          echo "Found artifact: $ARTIFACT_JAR"
           
           # Create a unique rollback version
           ROLLBACK_VERSION="${VERSION}-rollback-$(date +%s)"
