@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+	xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xsi:schemaLocation="
+		http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	<munit:config name="git-actions-cicd-poc-test-suite.xml" />
+	<configuration-properties doc:name="Configuration properties" doc:id="86c1a182-b1bb-4eb9-9e04-97c0966f7e4d" file="properties/config-${env}.yaml" />
+	<secure-properties:config name="Secure_Properties_Config1" doc:name="Secure Properties Config" doc:id="aebb43b0-aca4-4186-9e51-255c26016689" file="properties/config-secure-${env}.yaml" key="${mule.key}"/>
+	<munit:test name="git-actions-cicd-poc-test-suite-get:\test:git-actions-cicd-poc-configTest" doc:id="e7490227-4ace-4972-9b58-af6905498c34" description="Test">
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to get:\test:git-actions-cicd-poc-config" doc:id="82033853-5bb9-414a-b5e6-0009991660dc" name="get:\test:git-actions-cicd-poc-config"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert-that doc:name="Assert that payload not null" doc:id="37671c89-866e-49a0-8d71-657aa98647be" is="#[MunitTools::notNullValue()]" expression="#[payload]"/>
+		</munit:validation>
+	</munit:test>
+
+
+</mule>
