@@ -149,7 +149,7 @@ jobs:
           path: target/munits-reports/
 
   upload:
-    needs: [build]  # add 'test' later when enabled
+    needs: [test]  # add 'test' later when enabled
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
