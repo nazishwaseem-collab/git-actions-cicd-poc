@@ -91,6 +91,7 @@
 						</formats>
 					</coverage>
 					<environmentVariables>
+						<mule.key>${decryption.key}</mule.key>
 						<env>${env}</env>
 					</environmentVariables>
 				</configuration>
