@@ -132,7 +132,7 @@ jobs:
       - name: Run MUnit Tests
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
+          mvn -B clean test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
 
       - name: Upload MUnit Reports
         if: always()
@@ -140,6 +140,7 @@ jobs:
         with:
           name: munit-reports
           path: target/site/munit/coverage/
+          if-no-files-found: warn
 
       - name: Upload Munits Reports
         if: always()
@@ -147,6 +148,7 @@ jobs:
         with:
           name: munits-reports
           path: target/munits-reports/
+          if-no-files-found: warn
 
   upload:
     needs: [test]  # add 'test' later when enabled

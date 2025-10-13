@@ -82,12 +82,17 @@
 					</execution>
 				</executions>
 				<configuration>
-					<skipEmbeddedRuntime>false</skipEmbeddedRuntime>
-					<muleVersion>4.9.0</muleVersion>
+					<runtimeVersion>4.9.0</runtimeVersion>				 
 					<coverage>
 						<runCoverage>true</runCoverage>
+						<formats>
+							<format>html</format>
+							<format>json</format>
+						</formats>
 					</coverage>
-					<disableCloudHubDeployment>true</disableCloudHubDeployment>
+					<environmentVariables>
+						<env>${env}</env>
+					</environmentVariables>
 				</configuration>
 			</plugin>
 		</plugins>
@@ -181,6 +186,11 @@
 			<snapshots>
 				<enabled>true</enabled>
 			</snapshots>
+		</repository>
+		<!-- JitPack for missing dependencies -->
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
 		</repository>
 	</repositories>
 
