@@ -132,7 +132,7 @@ jobs:
       - name: Run MUnit Tests
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}"
+          mvn -B test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
 
       - name: Upload MUnit Reports
         if: always()
