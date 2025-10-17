@@ -97,6 +97,7 @@ jobs:
   test:
     needs: build
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/master'
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
     env:
@@ -151,7 +152,8 @@ jobs:
           if-no-files-found: warn
 
   upload:
-    needs: [test]  # add 'test' later when enabled
+    needs: [build, test] # add 'test' later when enabled
+    if: always() && needs.build.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
