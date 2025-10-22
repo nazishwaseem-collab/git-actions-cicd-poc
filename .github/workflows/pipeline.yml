@@ -152,7 +152,7 @@ jobs:
           if-no-files-found: warn
 
   upload:
-    needs: ${{ github.ref_name == 'master' && 'build' || '["build", "test"]' }}
+    needs: [build, test]
     if: |
       always() &&
       needs.build.result == 'success' &&
