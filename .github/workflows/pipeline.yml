@@ -97,7 +97,6 @@ jobs:
   test:
     needs: build
     runs-on: ubuntu-latest
-    # Only run tests for dev and uat, skip for prod/master
     if: github.ref != 'refs/heads/master'
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
@@ -154,10 +153,7 @@ jobs:
 
   upload:
     needs: [build, test] # add 'test' later when enabled
-    # Run if build succeeded AND (test succeeded OR test was skipped for master)
-    if: |
-      always() && 
-      needs.build.result == 'success' && 
+    if: always() && needs.build.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
@@ -200,8 +196,6 @@ jobs:
 
   policy-management:
     needs: upload
-    # Only run if upload succeeded
-    if: needs.upload.result == 'success'
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
@@ -336,8 +330,6 @@ jobs:
   deploy:
     name: Deploy Mule App to CloudHub 2.0
     needs: policy-management
-    # Only run if policy-management succeeded
-    if: needs.policy-management.result == 'success'
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
