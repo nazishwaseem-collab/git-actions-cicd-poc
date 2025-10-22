@@ -1,0 +1,18 @@
+env: "dev"
+
+### Main Http Listener config ###
+https:
+  host: ""
+  port: "8082"
+  path: "api/v1/*"
+  timeout:
+    readTimeOutInMillisec: "30000"
+
+### Auto-discovery and Anypoint credentials ###
+anypoint:
+  platform:
+    client_id: "${anypoint.platform.client_id}"
+    client_secret: "${anypoint.platform.client_secret}"
+
+api:
+  id: "${api.id}"

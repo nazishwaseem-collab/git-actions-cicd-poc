@@ -1,18 +1,31 @@
-# This workflow will build a MuleSoft project, publish to Exchange, and deploy to CloudHub 2.0
-
-name: Build, Test and Deploy to Sandbox
+name: Build, Upload, Policy Management, Deploy and Rollback Mule App
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - 'develop'      # dev environment
+      - 'release/**'   # uat environment
+      - 'master'       # prod environment
   workflow_dispatch:
+    inputs:
+      GIT_TAG:
+        description: 'Git tag version to roll back to (e.g., 1.0.0)'
+        required: false
+
+permissions:
+  actions: read
+  contents: write
+env:
+  JAVA_VERSION: '17'																																	 
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
-      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}                                            
 
     steps:
       - uses: actions/checkout@v4
@@ -21,29 +34,49 @@ jobs:
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          restore-keys: ${{ runner.os }}-maven-
 
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+
+      - name: Debug secrets
+        run: |
+          echo "ORG_ID length: ${#ORG_ID}"
+          echo "CLIENT_ID length: ${#CONNECTED_APP_CLIENT_ID}"
+          echo "CLIENT_SECRET length: ${#CONNECTED_APP_CLIENT_SECRET}"
+          echo "NEXUS_USERNAME length: ${#NEXUS_USERNAME}"
+        env:
+          ORG_ID: ${{ secrets.ORG_ID }}
+          CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+          CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+
+      - name: Compute dynamic app name
+        run: |
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "Using APP_NAME=$APP_NAME"
 
       # Give this run a unique version so Exchange doesn't reject duplicates
       - name: Set CI version (unique per run)
         run: |
           BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
-          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
+          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false -DprocessDependencies=false
           echo "Using version: ${NEW_VERSION}"
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
       - name: Print effective-settings (optional)
         run: mvn -B help:effective-settings -s .maven/settings.xml
 
       # Build but skip MUnit tests here
       - name: Build with Maven
-        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
 
       - name: Stamp artifact file name with commit hash
         shell: bash
@@ -56,18 +89,24 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts
+          name: mule-artifact
           path: target/*.jar
           if-no-files-found: error
           retention-days: 7
 
-  # NEW JOB FOR MUNIT TESTING
   test:
     needs: build
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/master'
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+
     env:
-      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ORG_ID: ${{ secrets.ORG_ID }}
 
     steps:
       - uses: actions/checkout@v4
@@ -76,85 +115,461 @@ jobs:
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          restore-keys: ${{ runner.os }}-maven-
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
-      # Run MUnit Tests (with Mule runtime 4.9.0 and Anypoint creds)
-      #- name: Run MUnit Tests
-      #  run: mvn -B clean test -s .maven/settings.xml  -DmuleVersion=4.9.0 -Dmunit.runtime.version=4.9.0  -Dclient.id="${CONNECTED_APP_CLIENT_ID}"  -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
-      # run: mvn -B clean test -s .maven/settings.xml -Dmunit.runtime.version=4.9.0 -Dclient.id="${CONNECTED_APP_CLIENT_ID}"  -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}"
+      - name: Set CI version (match build job)
+        run: |
+          BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
+          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false -DprocessDependencies=false
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
-      # Upload the MUnit HTML and JUnit reports
-      #- name: Upload MUnit Reports
-       # uses: actions/upload-artifact@v4
-        #with:
-         # name: munit-reports
-          #path: target/munit-reports/**
-          #if-no-files-found: warn
-          #retention-days: 7
+      - name: Run MUnit Tests
+        run: |
+          echo "Running MUnit tests for environment ${TARGET_ENV}"
+          mvn -B clean test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
+
+      - name: Upload MUnit Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: munit-reports
+          path: target/site/munit/coverage/
+          if-no-files-found: warn
+
+      - name: Upload Munits Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: munits-reports
+          path: target/munits-reports/
+          if-no-files-found: warn
 
   upload:
-    needs: [build, test]   # wait for both build & test jobs
+    needs: [build, test] # add 'test' later when enabled
+    if: always() && needs.build.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
-      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
-      KEY: ${{ secrets.decryption_key }}
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}      
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          restore-keys: ${{ runner.os }}-maven-
 
       - uses: actions/download-artifact@v4
         with:
-          name: artifacts
+          name: mule-artifact
           path: .
 
-      # Ensure the same unique version is set in this job too (matches build job)
-      - name: Set CI version (unique per run)
+      - name: Set CI version
+        run: |
+          BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
+          mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false -DprocessDependencies=false
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
+          
+      - name: Compute dynamic app name
+        run: |
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+
+      - name: Upload to Exchange
+        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
+
+  policy-management:
+    needs: upload
+    runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    env:
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}
+      ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Anypoint CLI + jq
+        run: |
+          npm install -g anypoint-cli-v4
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: CLI healthcheck
+        run: anypoint-cli-v4 --version
+
+      - name: Auth with Anypoint (non-interactive)
+        run: |
+          anypoint-cli-v4 conf client_id "${ANYPOINT_CLIENT_ID}"
+          anypoint-cli-v4 conf client_secret "${ANYPOINT_CLIENT_SECRET}"
+          anypoint-cli-v4 conf organization "${ANYPOINT_ORG}"
+
+          anypoint-cli-v4 account:environment:list
+
+      - name: Compute API Name & Version (existing Exchange asset)
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+
+          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
+          echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "Exchange asset = $REPO_NAME, version = $API_VERSION"
+
+      - name: Manage API from Exchange Asset
+        run: |
+          echo "Checking if API instance already exists..."
+          API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg asset "$REPO_NAME" --arg ver "$API_VERSION" '.[] | select(.assetId==$asset and .assetVersion==$ver) | .id' || echo "")
+          
+          if [ -z "$API_EXISTS" ] || [ "$API_EXISTS" = "null" ]; then
+            echo "No existing API instance found. Managing from Exchange asset: $REPO_NAME:$API_VERSION"
+            
+            # Create API instance and capture full output
+            CREATE_OUTPUT=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json 2>&1)
+            
+            echo "Create API output:"
+            echo "$CREATE_OUTPUT"
+            
+            # Try multiple fields to extract the API instance ID
+            API_INSTANCE_ID=$(echo "$CREATE_OUTPUT" | jq -r '.id // .apiInstanceId // .autodiscoveryApiName // empty' 2>/dev/null || echo "")
+            
+            if [ -z "$API_INSTANCE_ID" ] || [ "$API_INSTANCE_ID" = "null" ]; then
+              echo "Failed to extract API instance ID from create command. Attempting to find it via list..."
+              sleep 5  # Wait for API Manager to propagate the new instance
+              
+              # Retry fetching the API instance by listing all APIs
+              for i in {1..5}; do
+                echo "Attempt $i to find API instance..."
+                API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg asset "$REPO_NAME" --arg ver "$API_VERSION" '.[] | select(.assetId==$asset and .assetVersion==$ver) | .id' || echo "")
+                
+                if [ -n "$API_INSTANCE_ID" ] && [ "$API_INSTANCE_ID" != "null" ]; then
+                  echo "Found API instance with ID: $API_INSTANCE_ID"
+                  break
+                fi
+                
+                echo "API instance not found yet, waiting 5 seconds..."
+                sleep 5
+              done
+              
+              if [ -z "$API_INSTANCE_ID" ] || [ "$API_INSTANCE_ID" = "null" ]; then
+                echo "Error: Failed to create or find API instance after multiple attempts."
+                echo "Please verify Exchange asset exists and permissions are correct."
+                exit 1
+              fi
+            else
+              echo "Created API instance with ID: $API_INSTANCE_ID"
+            fi
+          else
+            API_INSTANCE_ID="$API_EXISTS"
+            echo "API instance already exists with ID: $API_INSTANCE_ID"
+          fi
+          
+          # Final validation
+          if [ -z "$API_INSTANCE_ID" ] || [ "$API_INSTANCE_ID" = "null" ]; then
+            echo "Error: API_INSTANCE_ID is null or empty. Cannot proceed."
+            exit 1
+          fi
+          
+          echo "API_INSTANCE_ID=$API_INSTANCE_ID" >> $GITHUB_ENV
+          echo "$API_INSTANCE_ID" > api_instance_id.txt
+          echo "Final API_INSTANCE_ID: $API_INSTANCE_ID"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-instance-id
+          path: api_instance_id.txt
+          if-no-files-found: error
+
+      #- name: Apply Client ID Enforcement Policy (dynamic version, skip if already applied)
+        #run: |
+          #API_INSTANCE_ID=$(cat api_instance_id.txt 2>/dev/null || true)
+          #if [ -z "$API_INSTANCE_ID" ]; then
+            #echo "No API instance ID found, skipping policy application."
+            #exit 0
+          #fi
+
+          ## Get latest client-id-enforcement version from Exchange
+          #echo "Fetching latest client-id-enforcement policy version from Exchange..."
+          #LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
+          #echo "Latest policy version: $LATEST_POLICY_VERSION"
+
+          ## Check if policy is already applied
+          #echo "Checking if policy is already applied..."
+          #ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
+          #if [ -n "$ALREADY_APPLIED" ]; then
+            #echo "Policy client-id-enforcement v$LATEST_POLICY_VERSION is already applied, skipping."
+          #else
+            #echo "Applying Client ID Enforcement policy v$LATEST_POLICY_VERSION..."
+            #anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --policyVersion "$LATEST_POLICY_VERSION" --config '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}'
+            #echo "Policy applied successfully."
+          #fi
+
+
+  deploy:
+    name: Deploy Mule App to CloudHub 2.0
+    needs: policy-management
+    runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    env:
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}
+      ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mule-artifact
+          path: .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-instance-id
+          path: .
+
+      - name: Load API instance ID
+        run: |
+          if [ -f "api_instance_id.txt" ]; then
+            API_INSTANCE_ID=$(cat api_instance_id.txt | tr -d '\n' | tr -d '\r')
+            echo "API_INSTANCE_ID=$API_INSTANCE_ID" >> $GITHUB_ENV
+            echo "Loaded API_INSTANCE_ID=$API_INSTANCE_ID"
+          else
+            echo "Error: api_instance_id.txt not found!"
+            exit 1
+          fi
+      - name: Set CI version
         run: |
           BASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
-          echo "Using version: ${NEW_VERSION}"
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
-      # Publish to Exchange via distributionManagement (server id = Repository)
-      - name: Upload to Exchange
-        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}" -Ddecryption.key="$KEY"
+      - name: Compute dynamic app name
+        run: |
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
 
-  deploy:
-    needs: upload
+      - name: Prepare CloudHub properties for autodiscovery
+        run: |
+          echo "env=${TARGET_ENV}" > cloudhub-properties.txt
+          echo "api.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}" >> cloudhub-properties.txt
+          echo "CloudHub properties:"
+          cat cloudhub-properties.txt
+
+      - name: Deploy to CloudHub 2.0 (env-specific)
+        run: |
+          echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment with API ID ${API_INSTANCE_ID}"
+          echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt"
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+
+      - name: Tag successful deployment
+        if: success()
+        run: |
+          APP_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          TAG_NAME="v${APP_VERSION}-$(date +'%Y%m%d-%H%M%S')"
+          echo "Creating tag ${TAG_NAME} for successful deployment"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${TAG_NAME}" -m "Successful deployment of ${APP_NAME} version ${APP_VERSION} to ${TARGET_ENV}"
+          git push origin "${TAG_NAME}"
+
+
+  rollback:
+    name: Rollback to Tagged Stable Version
+    needs: deploy
     runs-on: ubuntu-latest
+    if: failure()
+    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
-      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
-      KEY: ${{ secrets.decryption_key }}
+      GIT_TAG: ${{ github.event.inputs.GIT_TAG }}
+      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      PLATFORM_CLIENT_ID:  ${{ secrets.ANYPOINT_PLATFORM_CLIENT_ID }}
+      PLATFORM_CLIENT_SECRET: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      DCRYP_KEY: ${{ secrets.DECRYPTION_KEY }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
 
       - uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          restore-keys: ${{ runner.os }}-maven-
 
-      - uses: actions/download-artifact@v4
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Anypoint CLI + jq
+        run: |
+          npm install -g anypoint-cli-v4
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: CLI healthcheck
+        run: anypoint-cli-v4 --version
+
+      - name: Auth with Anypoint (non-interactive)
+        run: |
+          anypoint-cli-v4 conf client_id "${ANYPOINT_CLIENT_ID}"
+          anypoint-cli-v4 conf client_secret "${ANYPOINT_CLIENT_SECRET}"
+          anypoint-cli-v4 conf organization "${ANYPOINT_ORG}"
+          anypoint-cli-v4 account:environment:list
+
+      - name: Find last successful tag
+        id: find_tag
+        run: |
+          LAST_TAG=$(git tag --sort=-creatordate | head -n 1)
+          echo "Found last successful tag: $LAST_TAG"
+          echo "GIT_TAG=$LAST_TAG" >> $GITHUB_ENV
+
+      - name: Validate tag exists
+        run: |
+          if [ -z "${GIT_TAG}" ]; then
+            echo "No previous tag found, cannot roll back safely."
+            exit 1
+          else
+            echo "Rolling back to tag: ${GIT_TAG}"
+          fi
+
+      - name: Checkout stable tag
+        run: git checkout tags/${GIT_TAG}                                  
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
         with:
-          name: artifacts
-          path: .
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
 
-      - name: Deploy to Sandbox (CloudHub 2.0)
-        run: mvn -B deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Dclient.id="${CONNECTED_APP_CLIENT_ID}" -Dclient.secret="${CONNECTED_APP_CLIENT_SECRET}" -Ddecryption.key="$KEY"
+      - name: Rebuild Mule Artifact from Tag
+        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}"
+
+      - name: Compute dynamic app name
+        run: |
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          GROUP_ID=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout)
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
+          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
+          echo "GROUP_ID=$GROUP_ID" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV                                                       
+      - name: Fetch API Instance ID (for autodiscovery)
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          echo "Fetching API instance ID for API Manager instance containing name: ${REPO_NAME} in environment: ${TARGET_ENV}"
+          echo "Listing available APIs in ${TARGET_ENV}..."
+          anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output table || true
+
+          # Fetch API ID safely (case-insensitive match on assetId or name)
+          API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output json | jq -r --arg name "${REPO_NAME}" 'map(select(((.name // .assetId) | tostring | ascii_downcase) | contains($name | ascii_downcase)))[0].id // empty')
+
+          if [ -z "$API_INSTANCE_ID" ]; then
+            echo "No API instance found matching '${REPO_NAME}' in '${TARGET_ENV}' environment."
+            echo "Available APIs for debug:"
+            anypoint-cli-v4 api-mgr:api:list --environment "${TARGET_ENV}" --output table || true
+            exit 1
+          else
+            echo "Found API_INSTANCE_ID=${API_INSTANCE_ID}"
+            echo "API_INSTANCE_ID=${API_INSTANCE_ID}" >> $GITHUB_ENV
+          fi
+
+      - name: Update version for rollback and publish to Exchange
+        run: |
+          echo "Creating rollback version for Exchange..."
+          ARTIFACT_JAR=$(find target -type f -name "*.jar" | head -n 1)
+          if [ -z "$ARTIFACT_JAR" ]; then
+            echo "No artifact found to publish"
+            exit 1
+          fi
+          
+          # Create a unique rollback version
+          ROLLBACK_VERSION="${VERSION}-rollback-$(date +%s)"
+          echo "ROLLBACK_VERSION=$ROLLBACK_VERSION" >> $GITHUB_ENV
+          echo "Publishing as ${GROUP_ID}:${ARTIFACT_ID}:${ROLLBACK_VERSION}"
+          mvn -B versions:set -DnewVersion="${ROLLBACK_VERSION}" -DgenerateBackupPoms=false
+          
+          # Publish to Exchange
+          mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}"
+
+      - name: Prepare CloudHub properties for autodiscovery
+        run: |
+          echo "env=${TARGET_ENV}" > cloudhub-properties.txt
+          echo "api.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_id=${PLATFORM_CLIENT_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_secret=${PLATFORM_CLIENT_SECRET}" >> cloudhub-properties.txt
+          cat cloudhub-properties.txt
+
+
+      - name: Deploy rollback version using Maven
+        run: |
+          echo "Deploying rollback version ${ROLLBACK_VERSION} for ${APP_NAME}"
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+
+      - name: Rollback complete
+        run: echo "Rollback to ${GIT_TAG} completed with version ${ROLLBACK_VERSION}."
+            # if [ -n "$API_INSTANCE_ID" ]; then
+            # LATEST_POLICY_VERSION=$(anypoint-cli-v4 exchange:asset:list --groupId 68ef9520-24e9-4cf2-b2f5-620025690913 --assetId client-id-enforcement --output json | jq -r '.[0].version')
+            # ALREADY_APPLIED=$(anypoint-cli-v4 api-mgr:policy:list "$API_INSTANCE_ID" --output json | jq -r --arg id "client-id-enforcement" --arg ver "$LATEST_POLICY_VERSION" '.[] | select(.policyId==$id and .version==$ver) | .policyId')
+            # if [ -n "$ALREADY_APPLIED" ]; then
+              # echo "Policy client-id-enforcement v$LATEST_POLICY_VERSION is already applied, skipping."
+            # else
+              # echo "Re-applying Client ID Enforcement policy v$LATEST_POLICY_VERSION..."
+              # anypoint-cli-v4 api-mgr:policy:apply "$API_INSTANCE_ID" client-id-enforcement --policyVersion "$LATEST_POLICY_VERSION" --config '{"credentialsOrigin":"HTTP_BASIC_AUTHORIZATION_HEADER"}'
+            # fi
+          # else
+            # echo "No API instance ID found, skipping policy reapply."
+          # fi
+

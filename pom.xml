@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>ed6db8fe-fb50-4895-b773-ea82ad95798c</groupId>
-	<artifactId>git-actions-poc</artifactId>
+	<artifactId>git-actions-cicd-poc-v1</artifactId>
 	<version>1.0.0</version>
 	<packaging>mule-application</packaging>
 
-	<name>git-actions-poc</name>
+	<name>git-actions-cicd-poc-v1</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -33,14 +34,16 @@
 					<cloudhub2Deployment>
 						<uri>https://anypoint.mulesoft.com</uri>
 						<provider>MC</provider>
-						<environment>Sandbox</environment>
+						<environment>${env}</environment>
 						<target>Cloudhub-US-East-2</target>
 						<muleVersion>4.9.0</muleVersion>
 						<server>Repository</server>
-						<applicationName>${project.artifactId}</applicationName>
+						<applicationName>${app.name}</applicationName>
 						<releaseChannel>EDGE</releaseChannel>
 						<replicas>1</replicas>
 						<vCores>0.1</vCores>
+						<connectedAppClientId>${connected.app.clientId}</connectedAppClientId>
+						<connectedAppClientSecret>${connected.app.clientSecret}</connectedAppClientSecret>
 						<skipDeploymentVerification>${skipDeploymentVerification}</skipDeploymentVerification>
 						<integrations>
 							<services>
@@ -49,36 +52,54 @@
 								</objectStoreV2>
 							</services>
 						</integrations>
+						<secureProperties>
+						    <secureProperty>mule.key</secureProperty>
+						    <secureProperty>anypoint.platform.client_id</secureProperty>
+						    <secureProperty>anypoint.platform.client_secret</secureProperty>
+						</secureProperties>
 						<properties>
-              				<mule.key>${decryption.key}</mule.key>
-            			</properties>
+							<mule.key>${decryption.key}</mule.key>
+							<env>${env}</env>
+							<anypoint.platform.client_id>${anypoint.platform.client.id}</anypoint.platform.client_id>
+							<anypoint.platform.client_secret>${anypoint.platform.client.secret}</anypoint.platform.client_secret>
+							<api.id>${api.id}</api.id> <!-- autodiscovery injected from pipeline -->
+						</properties>
 					</cloudhub2Deployment>
+					<classifier>mule-application</classifier>
 				</configuration>
 			</plugin>
 			<plugin>
-			    <groupId>com.mulesoft.munit.tools</groupId>
-			    <artifactId>munit-maven-plugin</artifactId>
-			    <version>3.4.0</version>
-			
-			    <executions>
-			        <execution>
-			            <id>munit-test</id>
-			            <phase>test</phase>
-			            <goals>
-			                <goal>test</goal>
-			            </goals>
-			        </execution>
-			    </executions>
-			     <configuration>
-    			<skipEmbeddedRuntime>false</skipEmbeddedRuntime>
-			    <muleVersion>4.9.0</muleVersion>
-			    <coverage>
-				  <runCoverage>true</runCoverage>
-				</coverage>
-			    <disableCloudHubDeployment>true</disableCloudHubDeployment>
-			  </configuration>
+				<groupId>com.mulesoft.munit.tools</groupId>
+				<artifactId>munit-maven-plugin</artifactId>
+				<version>${munit.version}</version>
+				<executions>
+					<execution>
+						<id>munit-test</id>
+						<phase>test</phase>
+						<goals>
+							<goal>test</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<runtimeVersion>4.9.0</runtimeVersion>				 
+					<coverage>
+						<runCoverage>true</runCoverage>
+						<formats>
+							<format>html</format>
+							<format>json</format>
+						</formats>
+					</coverage>
+					<environmentVariables>
+						<mule.key>${decryption.key}</mule.key>
+						<env>${env}</env>
+					</environmentVariables>
+					<systemPropertyVariables>
+						<mule.env>${env}</mule.env>
+						<mule.key>${decryption.key}</mule.key>
+		            </systemPropertyVariables>
+				</configuration>
 			</plugin>
-
 		</plugins>
 	</build>
 
@@ -104,14 +125,14 @@
 		<dependency>
 			<groupId>com.mulesoft.munit</groupId>
 			<artifactId>munit-runner</artifactId>
-			<version>3.4.0</version>
+			<version>${munit.version}</version>
 			<classifier>mule-plugin</classifier>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.mulesoft.munit</groupId>
 			<artifactId>munit-tools</artifactId>
-			<version>3.4.0</version>
+			<version>${munit.version}</version>
 			<classifier>mule-plugin</classifier>
 			<scope>test</scope>
 		</dependency>
@@ -121,9 +142,23 @@
 			<version>1.2.1</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>ed6db8fe-fb50-4895-b773-ea82ad95798c</groupId>
+			<artifactId>git-actions-cicd-poc</artifactId>
+			<version>1.0.0</version>
+			<classifier>raml</classifier>
+			<type>zip</type>
+		</dependency>
+		<dependency>
+			<groupId>org.mule.modules</groupId>
+			<artifactId>mule-apikit-module</artifactId>
+			<version>1.11.3</version>
+			<classifier>mule-plugin</classifier>
+		</dependency>
 	</dependencies>
 
 	<repositories>
+		<!-- Anypoint Exchange -->
 		<repository>
 			<id>anypoint-exchange-v3</id>
 			<name>Anypoint Exchange</name>
@@ -142,6 +177,26 @@
 			<url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${project.groupId}/maven</url>
 			<layout>default</layout>
 		</repository>
+
+		<!-- Nexus Repos -->
+		<repository>
+			<id>nexus</id>
+			<name>Nexus Releases</name>
+			<url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee</url>
+		</repository>
+		<repository>
+			<id>nexus-snapshots</id>
+			<name>Nexus Snapshots</name>
+			<url>https://repository.mulesoft.org/nexus-ee/content/repositories/snapshots-ee</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+		<!-- JitPack for missing dependencies -->
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
 	</repositories>
 
 	<pluginRepositories>
@@ -154,6 +209,11 @@
 				<enabled>false</enabled>
 			</snapshots>
 		</pluginRepository>
+		<pluginRepository>
+			<id>nexus</id>
+			<name>Nexus Plugin Repo</name>
+			<url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee</url>
+		</pluginRepository>
 	</pluginRepositories>
 
 	<distributionManagement>
@@ -163,5 +223,10 @@
 			<url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${project.groupId}/maven</url>
 			<layout>default</layout>
 		</repository>
+		<snapshotRepository>
+			<id>nexus-snapshots</id>
+			<name>Nexus Snapshots</name>
+			<url>https://repository.mulesoft.org/nexus-ee/content/repositories/snapshots-ee</url>
+		</snapshotRepository>
 	</distributionManagement>
 </project>

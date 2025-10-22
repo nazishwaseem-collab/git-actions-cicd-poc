@@ -1,14 +1,39 @@
-<?xml version="1.0"?>
-<settings>
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
   <pluginGroups>
     <pluginGroup>org.mule.tools</pluginGroup>
   </pluginGroups>
 
   <servers>
+    <!-- Auth for Anypoint Exchange dependency resolution -->
+    <server>
+      <id>anypoint-exchange-v3</id>
+      <username>~~~Client~~~</username>
+      <password>${client.id}~?~${client.secret}</password>
+    </server>
+
+    <!-- Auth for publishing to Exchange -->
     <server>
       <id>Repository</id>
       <username>~~~Client~~~</username>
       <password>${client.id}~?~${client.secret}</password>
+    </server>
+
+    <!-- Nexus EE Releases -->
+    <server>
+      <id>nexus</id>
+      <username>${env.NEXUS_USERNAME}</username>
+      <password>${env.NEXUS_PASSWORD}</password>
+    </server>
+
+    <!-- Nexus EE Snapshots -->
+    <server>
+      <id>nexus-snapshots</id>
+      <username>${env.NEXUS_USERNAME}</username>
+      <password>${env.NEXUS_PASSWORD}</password>
     </server>
   </servers>
 
@@ -16,25 +41,39 @@
     <profile>
       <id>mulesoft</id>
       <repositories>
-          <repository>
+        <repository>
           <id>anypoint-exchange-v3</id>
           <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
         </repository>
         <repository>
-           <id>mulesoft-releases</id>
+          <id>mulesoft-releases</id>
           <url>https://repository.mulesoft.org/releases/</url>
         </repository>
+        <repository>
+          <id>nexus</id>
+          <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee</url>
+        </repository>
+        <repository>
+          <id>nexus-snapshots</id>
+          <url>https://repository.mulesoft.org/nexus-ee/content/repositories/snapshots-ee</url>
+        </repository>
       </repositories>
+
       <pluginRepositories>
         <pluginRepository>
           <id>mulesoft-releases</id>
           <url>https://repository.mulesoft.org/releases/</url>
         </pluginRepository>
-      </pluginRepositories>				 
+        <pluginRepository>
+          <id>nexus</id>
+          <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee</url>
+        </pluginRepository>
+      </pluginRepositories>
     </profile>
   </profiles>
 
   <activeProfiles>
     <activeProfile>mulesoft</activeProfile>
   </activeProfiles>
+
 </settings>

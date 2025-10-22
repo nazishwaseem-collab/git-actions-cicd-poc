@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+		<flow name="test-implementation-flow" doc:id="f32a2571-a78d-441a-ae27-9fc51936d526" >
+		<logger level="INFO" doc:name="Start Logger" doc:id="ab650383-9503-4cd2-a629-f6855dae8e62" message='#["test-flow-started"]'/>
+		<ee:transform doc:name="DW Set Response" doc:id="c103a9ce-c708-4840-b0a6-48fdd1177d03" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status" : "successfull"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log encrypted property" doc:id="91d0a5ca-1876-4758-bb4a-e35e5974f934" message="#[&quot;my secure property :  &quot; ++ p('secure::encrypted.property')]"/>
+		<logger level="INFO" doc:name="End Logger" doc:id="f865966b-dfe4-4432-93a1-965d5afbf099" message='#["test-flow-completed"]'/>
+	</flow>
+</mule>
