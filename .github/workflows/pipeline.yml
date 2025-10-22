@@ -153,7 +153,10 @@ jobs:
 
   upload:
     needs: [build, test] # add 'test' later when enabled
-    if: always() && needs.build.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    if: |
+      always() && 
+      needs.build.result == 'success' && 
+      (needs.test.result == 'success' || needs.test.result == 'skipped' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
     env:
@@ -162,7 +165,7 @@ jobs:
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
       ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
-      ANYPOINT_ORG: ${{ secrets.ORG_ID }}      
+      ANYPOINT_ORG: ${{ secrets.ORG_ID }}
 
     steps:
       - uses: actions/checkout@v4
