@@ -241,26 +241,66 @@ jobs:
       - name: Manage API from Exchange Asset
         run: |
           echo "Checking if API instance already exists..."
-          API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg asset "$REPO_NAME" --arg ver "$API_VERSION" '.[] | select(.assetId==$asset and .assetVersion==$ver) | .id')
-          if [ -z "$API_EXISTS" ]; then
+          API_EXISTS=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg asset "$REPO_NAME" --arg ver "$API_VERSION" '.[] | select(.assetId==$asset and .assetVersion==$ver) | .id' || echo "")
+          
+          if [ -z "$API_EXISTS" ] || [ "$API_EXISTS" = "null" ]; then
             echo "No existing API instance found. Managing from Exchange asset: $REPO_NAME:$API_VERSION"
-            API_EXISTS=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json | jq -r '.apiInstanceId // .id' || true)
-            if [ -z "$API_EXISTS" ]; then
-              echo "Error: Failed to create API instance. Please verify Exchange asset and permissions."
+            
+            # Create API instance and capture full output
+            CREATE_OUTPUT=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json 2>&1)
+            
+            echo "Create API output:"
+            echo "$CREATE_OUTPUT"
+            
+            # Try multiple fields to extract the API instance ID
+            API_INSTANCE_ID=$(echo "$CREATE_OUTPUT" | jq -r '.id // .apiInstanceId // .autodiscoveryApiName // empty' 2>/dev/null || echo "")
+            
+            if [ -z "$API_INSTANCE_ID" ] || [ "$API_INSTANCE_ID" = "null" ]; then
+              echo "Failed to extract API instance ID from create command. Attempting to find it via list..."
+              sleep 5  # Wait for API Manager to propagate the new instance
+              
+              # Retry fetching the API instance by listing all APIs
+              for i in {1..5}; do
+                echo "Attempt $i to find API instance..."
+                API_INSTANCE_ID=$(anypoint-cli-v4 api-mgr:api:list --output json | jq -r --arg asset "$REPO_NAME" --arg ver "$API_VERSION" '.[] | select(.assetId==$asset and .assetVersion==$ver) | .id' || echo "")
+                
+                if [ -n "$API_INSTANCE_ID" ] && [ "$API_INSTANCE_ID" != "null" ]; then
+                  echo "Found API instance with ID: $API_INSTANCE_ID"
+                  break
+                fi
+                
+                echo "API instance not found yet, waiting 5 seconds..."
+                sleep 5
+              done
+              
+              if [ -z "$API_INSTANCE_ID" ] || [ "$API_INSTANCE_ID" = "null" ]; then
+                echo "Error: Failed to create or find API instance after multiple attempts."
+                echo "Please verify Exchange asset exists and permissions are correct."
+                exit 1
+              fi
             else
-              echo "Created API instance with ID: $API_EXISTS"
+              echo "Created API instance with ID: $API_INSTANCE_ID"
             fi
           else
-            echo "API instance already exists with ID: $API_EXISTS"
+            API_INSTANCE_ID="$API_EXISTS"
+            echo "API instance already exists with ID: $API_INSTANCE_ID"
           fi
-          echo "API_INSTANCE_ID=$API_EXISTS" >> $GITHUB_ENV
-          echo "$API_EXISTS" > api_instance_id.txt
+          
+          # Final validation
+          if [ -z "$API_INSTANCE_ID" ] || [ "$API_INSTANCE_ID" = "null" ]; then
+            echo "Error: API_INSTANCE_ID is null or empty. Cannot proceed."
+            exit 1
+          fi
+          
+          echo "API_INSTANCE_ID=$API_INSTANCE_ID" >> $GITHUB_ENV
+          echo "$API_INSTANCE_ID" > api_instance_id.txt
+          echo "Final API_INSTANCE_ID: $API_INSTANCE_ID"
 
       - uses: actions/upload-artifact@v4
         with:
           name: api-instance-id
           path: api_instance_id.txt
-          if-no-files-found: warn
+          if-no-files-found: error
 
       #- name: Apply Client ID Enforcement Policy (dynamic version, skip if already applied)
         #run: |
