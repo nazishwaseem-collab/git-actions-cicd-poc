@@ -21,9 +21,9 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
     env:
-      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      TARGET_ENV: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}                                            
 
@@ -97,11 +97,11 @@ jobs:
   test:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/master'
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    if: github.ref_name != 'master'
+    environment: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
 
     env:
-      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      TARGET_ENV: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
@@ -152,15 +152,15 @@ jobs:
           if-no-files-found: warn
 
   upload:
-    needs: [build, test] # add 'test' later when enabled
+    needs: ${{ github.ref_name == 'master' && 'build' || '["build", "test"]' }}
     if: |
-      always() && 
-      needs.build.result == 'success' && 
-      (needs.test.result == 'success' || github.ref == 'refs/heads/master')
+      always() &&
+      needs.build.result == 'success' &&
+      (github.ref_name == 'master' || needs.test.result == 'success')
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
     env:
-      TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+      TARGET_ENV: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
@@ -200,9 +200,9 @@ jobs:
   policy-management:
     needs: upload
     # Explicitly run if upload succeeded
-    if: needs.upload.result == 'success'
+    if: always() && needs.upload.result == 'success'
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
@@ -336,9 +336,9 @@ jobs:
     name: Deploy Mule App to CloudHub 2.0
     needs: policy-management
     # Explicitly run if policy-management succeeded
-    if: needs.policy-management.result == 'success'
+    if: always() && needs.policy-management.result == 'success'
     runs-on: ubuntu-latest
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
@@ -423,7 +423,7 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     if: failure()
-    environment: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+    environment: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
     env:
       GIT_TAG: ${{ github.event.inputs.GIT_TAG }}
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
