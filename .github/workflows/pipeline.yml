@@ -54,14 +54,6 @@ jobs:
           CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
 
-      - name: Compute dynamic app name
-        run: |
-          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
-          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
-          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
-          echo "Using APP_NAME=$APP_NAME"
-
       # Give this run a unique version so Exchange doesn't reject duplicates
       - name: Set CI version (unique per run)
         run: |
@@ -76,7 +68,8 @@ jobs:
 
       # Build but skip MUnit tests here
       - name: Build with Maven
-        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
+              
+        run: mvn -B clean package -s .maven/settings.xml -P${TARGET_ENV} -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}"                                                       
 
       - name: Stamp artifact file name with commit hash
         shell: bash
@@ -133,7 +126,7 @@ jobs:
       - name: Run MUnit Tests
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B clean test -s .maven/settings.xml -Danypoint.organization=${ORG_ID} -Denv=${TARGET_ENV} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
+          mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
 
       - name: Upload MUnit Reports
         if: always()
@@ -186,16 +179,9 @@ jobs:
           NEW_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false -DprocessDependencies=false
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
-          
-      - name: Compute dynamic app name
-        run: |
-          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
-          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
-          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
 
       - name: Upload to Exchange
-        run: mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}" -Dapp.name="${APP_NAME}"
+        run: mvn -B deploy -s .maven/settings.xml -P${TARGET_ENV} -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}"
 
   policy-management:
     needs: upload
@@ -229,19 +215,34 @@ jobs:
 
           anypoint-cli-v4 account:environment:list
 
-      - name: Compute API Name & Version (existing Exchange asset)
+      # Get app name and endpoint from POM properties
+      - name: Compute API Name & Endpoint from POM
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
-          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-          API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
-
-          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout -P${TARGET_ENV})
+          API_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout -P${TARGET_ENV})
+          APP_NAME_PREFIX=$(mvn help:evaluate -Dexpression=app.name.prefix -q -DforceStdout -P${TARGET_ENV})
+          ENDPOINT_URI=$(mvn help:evaluate -Dexpression=api.manager.endpoint.uri -q -DforceStdout -P${TARGET_ENV})
+          DEPLOYMENT_TYPE=$(mvn help:evaluate -Dexpression=api.manager.deployment.type -q -DforceStdout -P${TARGET_ENV})
+          API_PATH=$(mvn help:evaluate -Dexpression=api.manager.path -q -DforceStdout -P${TARGET_ENV})
+          API_SCHEME=$(mvn help:evaluate -Dexpression=api.manager.scheme -q -DforceStdout -P${TARGET_ENV})
+          API_PORT=$(mvn help:evaluate -Dexpression=api.manager.port -q -DforceStdout -P${TARGET_ENV})
+          
+          APP_NAME="${APP_NAME_PREFIX}-${ARTIFACT_ID}"
+          
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
           echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "ENDPOINT_URI=$ENDPOINT_URI" >> $GITHUB_ENV
+          echo "DEPLOYMENT_TYPE=$DEPLOYMENT_TYPE" >> $GITHUB_ENV
+          echo "API_PATH=$API_PATH" >> $GITHUB_ENV
+          echo "API_SCHEME=$API_SCHEME" >> $GITHUB_ENV
+          echo "API_PORT=$API_PORT" >> $GITHUB_ENV
+          
           echo "Exchange asset = $REPO_NAME, version = $API_VERSION"
+          echo "App Name = $APP_NAME"
+          echo "Endpoint URI = $ENDPOINT_URI"
 
       - name: Manage API from Exchange Asset
         run: |
@@ -252,7 +253,7 @@ jobs:
             echo "No existing API instance found. Managing from Exchange asset: $REPO_NAME:$API_VERSION"
             
             # Create API instance and capture full output
-            CREATE_OUTPUT=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType cloudhub2 --endpointUri "https://${APP_NAME}.us-e1.cloudhub.io" --path "/" --scheme https --port 443 --muleVersion4OrAbove --output json 2>&1)
+            CREATE_OUTPUT=$(anypoint-cli-v4 api-mgr:api:manage "$REPO_NAME" "$API_VERSION" --deploymentType "$DEPLOYMENT_TYPE" --endpointUri "$ENDPOINT_URI" --path "$API_PATH" --scheme "$API_SCHEME" --port "$API_PORT" --muleVersion4OrAbove --output json 2>&1)
             
             echo "Create API output:"
             echo "$CREATE_OUTPUT"
@@ -382,12 +383,14 @@ jobs:
           mvn -B versions:set -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
-      - name: Compute dynamic app name
+      # Get app name from POM profile
+      - name: Get App Name from POM Profile
         run: |
-          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
-          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout -P${TARGET_ENV})
+          APP_NAME_PREFIX=$(mvn help:evaluate -Dexpression=app.name.prefix -q -DforceStdout -P${TARGET_ENV})
+          APP_NAME="${APP_NAME_PREFIX}-${ARTIFACT_ID}"
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "Deploying app: $APP_NAME"
 
       - name: Prepare CloudHub properties for autodiscovery
         run: |
@@ -398,11 +401,14 @@ jobs:
           echo "CloudHub properties:"
           cat cloudhub-properties.txt
 
+      # Deploy using Maven profile - all deployment config comes from POM!
       - name: Deploy to CloudHub 2.0 (env-specific)
         run: |
           echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment with API ID ${API_INSTANCE_ID}"
           echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt"
-          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+        #  mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+          mvn -B mule:deploy -s .maven/settings.xml -P${TARGET_ENV} -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+
 
       - name: Tag successful deployment
         if: success()
@@ -500,19 +506,23 @@ jobs:
           distribution: 'temurin'
 
       - name: Rebuild Mule Artifact from Tag
-        run: mvn -B clean package -s .maven/settings.xml -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}"
+        run: mvn -B clean package -s .maven/settings.xml -P${TARGET_ENV} -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dnexus.username="${{ secrets.NEXUS_USERNAME }}" -Dnexus.password="${{ secrets.NEXUS_PASSWORD }}"
 
-      - name: Compute dynamic app name
+      # Get app name from POM profile
+      - name: Compute dynamic app name from POM
         run: |
-          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-          GROUP_ID=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout)
-          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          if [ "${TARGET_ENV}" = "dev" ]; then PREFIX="bosdev"; elif [ "${TARGET_ENV}" = "uat" ]; then PREFIX="bosuat"; else PREFIX="bos"; fi
-          APP_NAME="${PREFIX}-${ARTIFACT_ID}"
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout -P${TARGET_ENV})
+          GROUP_ID=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout -P${TARGET_ENV})
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout -P${TARGET_ENV})
+          APP_NAME_PREFIX=$(mvn help:evaluate -Dexpression=app.name.prefix -q -DforceStdout -P${TARGET_ENV})
+          
+          APP_NAME="${APP_NAME_PREFIX}-${ARTIFACT_ID}"
+          
           echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
           echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
           echo "GROUP_ID=$GROUP_ID" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV                                                       
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Rollback App Name: $APP_NAME"                                                   
       - name: Fetch API Instance ID (for autodiscovery)
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
@@ -549,7 +559,7 @@ jobs:
           mvn -B versions:set -DnewVersion="${ROLLBACK_VERSION}" -DgenerateBackupPoms=false
           
           # Publish to Exchange
-          mvn -B deploy -s .maven/settings.xml -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}"
+          mvn -B deploy -s .maven/settings.xml -P${TARGET_ENV} -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}"
 
       - name: Prepare CloudHub properties for autodiscovery
         run: |
@@ -563,7 +573,7 @@ jobs:
       - name: Deploy rollback version using Maven
         run: |
           echo "Deploying rollback version ${ROLLBACK_VERSION} for ${APP_NAME}"
-          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
+          mvn -B mule:deploy -s .maven/settings.xml -P${TARGET_ENV} -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
       - name: Rollback complete
         run: echo "Rollback to ${GIT_TAG} completed with version ${ROLLBACK_VERSION}."

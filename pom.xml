@@ -16,6 +16,12 @@
 		<app.runtime>4.9.0</app.runtime>
 		<mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
 		<munit.version>3.4.0</munit.version>
+		
+		<!-- Default values (will be overridden by profiles) -->
+		<env>dev</env>
+		<app.name.prefix>bosdev</app.name.prefix>
+		<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+		<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
 	</properties>
 
 	<build>
@@ -35,10 +41,11 @@
 						<uri>https://anypoint.mulesoft.com</uri>
 						<provider>MC</provider>
 						<environment>${env}</environment>
-						<target>Cloudhub-US-East-2</target>
-						<muleVersion>4.9.0</muleVersion>
+						<target>${cloudhub.region}</target>
+						<muleVersion>${app.runtime}</muleVersion>
 						<server>Repository</server>
-						<applicationName>${app.name}</applicationName>
+						<!-- Dynamic app name constructed from profile prefix + artifactId -->
+						<applicationName>${app.name.prefix}-${project.artifactId}</applicationName>
 						<releaseChannel>EDGE</releaseChannel>
 						<replicas>1</replicas>
 						<vCores>0.1</vCores>
@@ -62,7 +69,7 @@
 							<env>${env}</env>
 							<anypoint.platform.client_id>${anypoint.platform.client.id}</anypoint.platform.client_id>
 							<anypoint.platform.client_secret>${anypoint.platform.client.secret}</anypoint.platform.client_secret>
-							<api.id>${api.id}</api.id> <!-- autodiscovery injected from pipeline -->
+							<api.id>${api.id}</api.id>
 						</properties>
 					</cloudhub2Deployment>
 					<classifier>mule-application</classifier>
@@ -82,7 +89,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<runtimeVersion>4.9.0</runtimeVersion>				 
+					<runtimeVersion>${app.runtime}</runtimeVersion>				 
 					<coverage>
 						<runCoverage>true</runCoverage>
 						<formats>
@@ -156,6 +163,62 @@
 			<classifier>mule-plugin</classifier>
 		</dependency>
 	</dependencies>
+
+	<!-- ========================================== -->
+	<!--     ENVIRONMENT-SPECIFIC PROFILES          -->
+	<!-- ========================================== -->
+	<profiles>
+		<!-- DEV Profile -->
+		<profile>
+			<id>dev</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<env>dev</env>
+				<app.name.prefix>bosdev</app.name.prefix>
+				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
+				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+				<api.manager.path>/</api.manager.path>
+				<api.manager.scheme>https</api.manager.scheme>
+				<api.manager.port>443</api.manager.port>
+			</properties>
+		</profile>
+
+		<!-- UAT Profile -->
+		<profile>
+			<id>uat</id>
+			<properties>
+				<env>uat</env>
+				<app.name.prefix>bosuat</app.name.prefix>
+				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
+				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+				<api.manager.path>/</api.manager.path>
+				<api.manager.scheme>https</api.manager.scheme>
+				<api.manager.port>443</api.manager.port>
+			</properties>
+		</profile>
+
+		<!-- PROD Profile -->
+		<profile>
+			<id>prod</id>
+			<properties>
+				<env>prod</env>
+				<app.name.prefix>bos</app.name.prefix>
+				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
+				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+				<api.manager.path>/</api.manager.path>
+				<api.manager.scheme>https</api.manager.scheme>
+				<api.manager.port>443</api.manager.port>
+			</properties>
+		</profile>
+	</profiles>
 
 	<repositories>
 		<!-- Anypoint Exchange -->
