@@ -136,10 +136,8 @@
 						<releaseChannel>EDGE</releaseChannel>
 						<replicas>${cloudhub.replicas}</replicas>
 						<vCores>${cloudhub.vcores}</vCores>
-				        <connectedApp>
 							<clientId>${connected.app.clientId}</clientId>
 							<clientSecret>${connected.app.clientSecret}</clientSecret>
-						</connectedApp>
 						<skipDeploymentVerification>${skipDeploymentVerification}</skipDeploymentVerification>
 						<integrations>
 							<services>
