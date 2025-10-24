@@ -117,20 +117,27 @@
 				<version>${mule.maven.plugin.version}</version>
 				<extensions>true</extensions>
 				<configuration>
+				<!-- Connection configuration to prevent timeouts -->
+					<armDeployment>
+						<timeout>600000</timeout>
+					</armDeployment>
 					<cloudhub2Deployment>
 						<uri>https://anypoint.mulesoft.com</uri>
 						<provider>MC</provider>
 						<environment>${env}</environment>
 						<target>${cloudhub.region}</target>
 						<muleVersion>${app.runtime}</muleVersion>
-						<server>Repository</server>
+						<!-- <server>Repository</server> -->
 						<!-- Dynamic app name using profile prefix -->
 						<applicationName>${app.name.prefix}-${project.artifactId}</applicationName>
 						<releaseChannel>EDGE</releaseChannel>
 						<replicas>${cloudhub.replicas}</replicas>
 						<vCores>${cloudhub.vcores}</vCores>
-						<connectedAppClientId>${connected.app.clientId}</connectedAppClientId>
-						<connectedAppClientSecret>${connected.app.clientSecret}</connectedAppClientSecret>
+						<connectedApp>
+							<clientId>${connected.app.clientId}</clientId>
+							<clientSecret>${connected.app.clientSecret}</clientSecret>
+						</connectedApp>
+
 						<skipDeploymentVerification>${skipDeploymentVerification}</skipDeploymentVerification>
 						<integrations>
 							<services>
