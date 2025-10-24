@@ -116,6 +116,13 @@
 				<artifactId>mule-maven-plugin</artifactId>
 				<version>${mule.maven.plugin.version}</version>
 				<extensions>true</extensions>
+				<executions>
+					<execution>
+						<id>deploy-to-cloudhub2</id>
+						<phase>deploy</phase>
+						<goals>
+							<goal>deploy</goal>
+						</goals>
 				<configuration>
 					<cloudhub2Deployment>
 						<uri>https://anypoint.mulesoft.com</uri>
@@ -156,6 +163,8 @@
 					</cloudhub2Deployment>
 					<classifier>mule-application</classifier>
 				</configuration>
+				</execution>
+    </executions>
 			</plugin>
 			<plugin>
 				<groupId>com.mulesoft.munit.tools</groupId>
