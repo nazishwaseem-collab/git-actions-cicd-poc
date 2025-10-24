@@ -98,8 +98,8 @@
 				<api.port>443</api.port>
 				<api.path>/</api.path>
 				<!-- Prod might need more resources -->
-				<cloudhub.vcores>0.2</cloudhub.vcores>
-				<cloudhub.replicas>2</cloudhub.replicas>
+				<cloudhub.vcores>0.1</cloudhub.vcores>
+				<cloudhub.replicas>1</cloudhub.replicas>
 			</properties>
 		</profile>
 	</profiles>
