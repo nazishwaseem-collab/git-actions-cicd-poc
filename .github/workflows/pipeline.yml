@@ -359,13 +359,16 @@ jobs:
     environment: ${{ startsWith(github.ref_name, 'release/') && 'uat' || (github.ref_name == 'master' && 'prod' || 'dev') }}
     env:
       TARGET_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
-      ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
-      ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      CONNECTED_APP_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+      CONNECTED_APP_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+      ANYPOINT_PLATFORM_CLIENT_ID: ${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}
+      ANYPOINT_PLATFORM_CLIENT_SECRET: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}
       ANYPOINT_ORG: ${{ secrets.ORG_ID }}
       ANYPOINT_ENV: ${{ startsWith(github.ref, 'refs/heads/release/') && 'uat' || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
       APP_NAME: ${{ needs.build.outputs.app-name }}
+      DECRYPTION_KEY: ${{ secrets.DECRYPTION_KEY }}
       
     steps:
       - uses: actions/checkout@v4
@@ -407,8 +410,8 @@ jobs:
         run: |
           echo "env=${TARGET_ENV}" > cloudhub-properties.txt
           echo "api.id=${API_INSTANCE_ID}" >> cloudhub-properties.txt
-          echo "anypoint.platform.client_id=${ANYPOINT_CLIENT_ID}" >> cloudhub-properties.txt
-          echo "anypoint.platform.client_secret=${ANYPOINT_CLIENT_SECRET}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_id=${ANYPOINT_PLATFORM_CLIENT_ID}" >> cloudhub-properties.txt
+          echo "anypoint.platform.client_secret=${ANYPOINT_PLATFORM_CLIENT_SECRET}" >> cloudhub-properties.txt
           echo "CloudHub properties:"
           cat cloudhub-properties.txt
 
@@ -417,7 +420,7 @@ jobs:
           echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment with API ID ${API_INSTANCE_ID}"
           echo "Profile ${TARGET_ENV} will be activated automatically"
           echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Denv=${TARGET_ENV} -Danypoint.organization=${{ secrets.ORG_ID }} -Dconnected.app.clientId="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dconnected.app.clientSecret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}""
-          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Denv=${TARGET_ENV} -Danypoint.organization=${{ secrets.ORG_ID }} -Dconnected.app.clientId="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dconnected.app.clientSecret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}" 
+          mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Denv=${TARGET_ENV} -Danypoint.organization=${ANYPOINT_ORG} -Dconnected.app.clientId="${CONNECTED_APP_CLIENT_ID}" -Dconnected.app.clientSecret="${CONNECTED_APP_CLIENT_SECRET}" -Danypoint.platform.client.id="${ANYPOINT_PLATFORM_CLIENT_ID}" -Danypoint.platform.client.secret="${ANYPOINT_PLATFORM_CLIENT_SECRET}" -Ddecryption.key="${DECRYPTION_KEY}" -Dapi.id="${API_INSTANCE_ID}"
         # mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="     ${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret=             "${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
       - name: Tag successful deployment
