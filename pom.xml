@@ -17,92 +17,12 @@
 		<mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
 		<munit.version>3.4.0</munit.version>
 		
-		<!-- Default properties (will be overridden by profiles) -->
+		<!-- Default values (will be overridden by profiles) -->
 		<env>dev</env>
 		<app.name.prefix>bosdev</app.name.prefix>
 		<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
 		<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-		<api.deployment.type>cloudhub2</api.deployment.type>
-		<api.scheme>https</api.scheme>
-		<api.port>443</api.port>
-		<api.path>/</api.path>
 	</properties>
-
-	<!-- Environment-specific profiles -->
-	<profiles>
-		<!-- DEV Environment Profile -->
-		<profile>
-			<id>dev</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-				<property>
-					<name>env</name>
-					<value>dev</value>
-				</property>
-			</activation>
-			<properties>
-				<env>dev</env>
-				<app.name.prefix>bosdev</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<api.deployment.type>cloudhub2</api.deployment.type>
-				<api.scheme>https</api.scheme>
-				<api.port>443</api.port>
-				<api.path>/</api.path>
-				<!-- Can add dev-specific properties like smaller vCores -->
-				<cloudhub.vcores>0.1</cloudhub.vcores>
-				<cloudhub.replicas>1</cloudhub.replicas>
-			</properties>
-		</profile>
-
-		<!-- UAT Environment Profile -->
-		<profile>
-			<id>uat</id>
-			<activation>
-				<property>
-					<name>env</name>
-					<value>uat</value>
-				</property>
-			</activation>
-			<properties>
-				<env>uat</env>
-				<app.name.prefix>bosuat</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<api.deployment.type>cloudhub2</api.deployment.type>
-				<api.scheme>https</api.scheme>
-				<api.port>443</api.port>
-				<api.path>/</api.path>
-				<!-- Can add uat-specific properties -->
-				<cloudhub.vcores>0.1</cloudhub.vcores>
-				<cloudhub.replicas>1</cloudhub.replicas>
-			</properties>
-		</profile>
-
-		<!-- PROD Environment Profile -->
-		<profile>
-			<id>prod</id>
-			<activation>
-				<property>
-					<name>env</name>
-					<value>prod</value>
-				</property>
-			</activation>
-			<properties>
-				<env>prod</env>
-				<app.name.prefix>bos</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<api.deployment.type>cloudhub2</api.deployment.type>
-				<api.scheme>https</api.scheme>
-				<api.port>443</api.port>
-				<api.path>/</api.path>
-				<!-- Prod might need more resources -->
-				<cloudhub.vcores>0.2</cloudhub.vcores>
-				<cloudhub.replicas>2</cloudhub.replicas>
-			</properties>
-		</profile>
-	</profiles>
 
 	<build>
 		<plugins>
@@ -124,11 +44,11 @@
 						<target>${cloudhub.region}</target>
 						<muleVersion>${app.runtime}</muleVersion>
 						<server>Repository</server>
-						<!-- Dynamic app name using profile prefix -->
+						<!-- Dynamic app name constructed from profile prefix + artifactId -->
 						<applicationName>${app.name.prefix}-${project.artifactId}</applicationName>
 						<releaseChannel>EDGE</releaseChannel>
-						<replicas>${cloudhub.replicas}</replicas>
-						<vCores>${cloudhub.vcores}</vCores>
+						<replicas>1</replicas>
+						<vCores>0.1</vCores>
 						<connectedAppClientId>${connected.app.clientId}</connectedAppClientId>
 						<connectedAppClientSecret>${connected.app.clientSecret}</connectedAppClientSecret>
 						<skipDeploymentVerification>${skipDeploymentVerification}</skipDeploymentVerification>
@@ -149,7 +69,7 @@
 							<env>${env}</env>
 							<anypoint.platform.client_id>${anypoint.platform.client.id}</anypoint.platform.client_id>
 							<anypoint.platform.client_secret>${anypoint.platform.client.secret}</anypoint.platform.client_secret>
-							<api.id>${api.id}</api.id> <!-- autodiscovery injected from pipeline -->
+							<api.id>${api.id}</api.id>
 						</properties>
 					</cloudhub2Deployment>
 					<classifier>mule-application</classifier>
@@ -243,6 +163,62 @@
 			<classifier>mule-plugin</classifier>
 		</dependency>
 	</dependencies>
+
+	<!-- ========================================== -->
+	<!--     ENVIRONMENT-SPECIFIC PROFILES          -->
+	<!-- ========================================== -->
+	<profiles>
+		<!-- DEV Profile -->
+		<profile>
+			<id>dev</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<env>dev</env>
+				<app.name.prefix>bosdev</app.name.prefix>
+				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
+				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+				<api.manager.path>/</api.manager.path>
+				<api.manager.scheme>https</api.manager.scheme>
+				<api.manager.port>443</api.manager.port>
+			</properties>
+		</profile>
+
+		<!-- UAT Profile -->
+		<profile>
+			<id>uat</id>
+			<properties>
+				<env>uat</env>
+				<app.name.prefix>bosuat</app.name.prefix>
+				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
+				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+				<api.manager.path>/</api.manager.path>
+				<api.manager.scheme>https</api.manager.scheme>
+				<api.manager.port>443</api.manager.port>
+			</properties>
+		</profile>
+
+		<!-- PROD Profile -->
+		<profile>
+			<id>prod</id>
+			<properties>
+				<env>prod</env>
+				<app.name.prefix>bos</app.name.prefix>
+				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
+				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+				<api.manager.path>/</api.manager.path>
+				<api.manager.scheme>https</api.manager.scheme>
+				<api.manager.port>443</api.manager.port>
+			</properties>
+		</profile>
+	</profiles>
 
 	<repositories>
 		<!-- Anypoint Exchange -->
