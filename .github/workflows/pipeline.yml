@@ -227,9 +227,7 @@ jobs:
           API_PATH=$(mvn help:evaluate -Dexpression=api.manager.path -q -DforceStdout -P${TARGET_ENV})
           API_SCHEME=$(mvn help:evaluate -Dexpression=api.manager.scheme -q -DforceStdout -P${TARGET_ENV})
           API_PORT=$(mvn help:evaluate -Dexpression=api.manager.port -q -DforceStdout -P${TARGET_ENV})
-          
           APP_NAME="${APP_NAME_PREFIX}-${ARTIFACT_ID}"
-          
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
           echo "API_VERSION=$API_VERSION" >> $GITHUB_ENV
@@ -239,7 +237,6 @@ jobs:
           echo "API_PATH=$API_PATH" >> $GITHUB_ENV
           echo "API_SCHEME=$API_SCHEME" >> $GITHUB_ENV
           echo "API_PORT=$API_PORT" >> $GITHUB_ENV
-          
           echo "Exchange asset = $REPO_NAME, version = $API_VERSION"
           echo "App Name = $APP_NAME"
           echo "Endpoint URI = $ENDPOINT_URI"
@@ -406,9 +403,8 @@ jobs:
         run: |
           echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment with API ID ${API_INSTANCE_ID}"
           echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt"
+          mvn -B mule:deploy -s .maven/settings.xml -P${TARGET_ENV} -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt    
         #  mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
-          mvn -B mule:deploy -s .maven/settings.xml -P${TARGET_ENV} -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
-
 
       - name: Tag successful deployment
         if: success()
@@ -416,10 +412,8 @@ jobs:
           APP_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           TAG_NAME="v${APP_VERSION}-$(date +'%Y%m%d-%H%M%S')"
           echo "Creating tag ${TAG_NAME} for successful deployment"
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git tag -a "${TAG_NAME}" -m "Successful deployment of ${APP_NAME} version ${APP_VERSION} to ${TARGET_ENV}"
           git push origin "${TAG_NAME}"
 
