@@ -117,10 +117,6 @@
 				<version>${mule.maven.plugin.version}</version>
 				<extensions>true</extensions>
 				<configuration>
-				<!-- Connection configuration to prevent timeouts -->
-					<armDeployment>
-						<timeout>600000</timeout>
-					</armDeployment>
 					<cloudhub2Deployment>
 						<uri>https://anypoint.mulesoft.com</uri>
 						<provider>MC</provider>
