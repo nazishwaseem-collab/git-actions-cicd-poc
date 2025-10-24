@@ -16,93 +16,7 @@
 		<app.runtime>4.9.0</app.runtime>
 		<mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
 		<munit.version>3.4.0</munit.version>
-		
-		<!-- Default properties (will be overridden by profiles) -->
-		<env>dev</env>
-		<app.name.prefix>bosdev</app.name.prefix>
-		<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-		<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-		<api.deployment.type>cloudhub2</api.deployment.type>
-		<api.scheme>https</api.scheme>
-		<api.port>443</api.port>
-		<api.path>/</api.path>
 	</properties>
-
-	<!-- Environment-specific profiles -->
-	<profiles>
-		<!-- DEV Environment Profile -->
-		<profile>
-			<id>dev</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-				<property>
-					<name>env</name>
-					<value>dev</value>
-				</property>
-			</activation>
-			<properties>
-				<env>dev</env>
-				<app.name.prefix>bosdev</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<api.deployment.type>cloudhub2</api.deployment.type>
-				<api.scheme>https</api.scheme>
-				<api.port>443</api.port>
-				<api.path>/</api.path>
-				<!-- Can add dev-specific properties like smaller vCores -->
-				<cloudhub.vcores>0.1</cloudhub.vcores>
-				<cloudhub.replicas>1</cloudhub.replicas>
-			</properties>
-		</profile>
-
-		<!-- UAT Environment Profile -->
-		<profile>
-			<id>uat</id>
-			<activation>
-				<property>
-					<name>env</name>
-					<value>uat</value>
-				</property>
-			</activation>
-			<properties>
-				<env>uat</env>
-				<app.name.prefix>bosuat</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<api.deployment.type>cloudhub2</api.deployment.type>
-				<api.scheme>https</api.scheme>
-				<api.port>443</api.port>
-				<api.path>/</api.path>
-				<!-- Can add uat-specific properties -->
-				<cloudhub.vcores>0.1</cloudhub.vcores>
-				<cloudhub.replicas>1</cloudhub.replicas>
-			</properties>
-		</profile>
-
-		<!-- PROD Environment Profile -->
-		<profile>
-			<id>prod</id>
-			<activation>
-				<property>
-					<name>env</name>
-					<value>prod</value>
-				</property>
-			</activation>
-			<properties>
-				<env>prod</env>
-				<app.name.prefix>bos</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<api.deployment.type>cloudhub2</api.deployment.type>
-				<api.scheme>https</api.scheme>
-				<api.port>443</api.port>
-				<api.path>/</api.path>
-				<!-- Prod might need more resources -->
-				<cloudhub.vcores>0.1</cloudhub.vcores>
-				<cloudhub.replicas>1</cloudhub.replicas>
-			</properties>
-		</profile>
-	</profiles>
 
 	<build>
 		<plugins>
@@ -116,28 +30,20 @@
 				<artifactId>mule-maven-plugin</artifactId>
 				<version>${mule.maven.plugin.version}</version>
 				<extensions>true</extensions>
-				<executions>
-					<execution>
-						<id>deploy-to-cloudhub2</id>
-						<phase>deploy</phase>
-						<goals>
-							<goal>deploy</goal>
-						</goals>
 				<configuration>
 					<cloudhub2Deployment>
 						<uri>https://anypoint.mulesoft.com</uri>
 						<provider>MC</provider>
 						<environment>${env}</environment>
-						<target>${cloudhub.region}</target>
-						<muleVersion>${app.runtime}</muleVersion>
-						<!-- <server>Repository</server> -->
-						<!-- Dynamic app name using profile prefix -->
-						<applicationName>${app.name.prefix}-${project.artifactId}</applicationName>
+						<target>Cloudhub-US-East-2</target>
+						<muleVersion>4.9.0</muleVersion>
+						<server>Repository</server>
+						<applicationName>${app.name}</applicationName>
 						<releaseChannel>EDGE</releaseChannel>
-						<replicas>${cloudhub.replicas}</replicas>
-						<vCores>${cloudhub.vcores}</vCores>
-							<clientId>${connected.app.clientId}</clientId>
-							<clientSecret>${connected.app.clientSecret}</clientSecret>
+						<replicas>1</replicas>
+						<vCores>0.1</vCores>
+						<connectedAppClientId>${connected.app.clientId}</connectedAppClientId>
+						<connectedAppClientSecret>${connected.app.clientSecret}</connectedAppClientSecret>
 						<skipDeploymentVerification>${skipDeploymentVerification}</skipDeploymentVerification>
 						<integrations>
 							<services>
@@ -161,8 +67,6 @@
 					</cloudhub2Deployment>
 					<classifier>mule-application</classifier>
 				</configuration>
-				</execution>
-    </executions>
 			</plugin>
 			<plugin>
 				<groupId>com.mulesoft.munit.tools</groupId>
@@ -178,7 +82,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<runtimeVersion>${app.runtime}</runtimeVersion>				 
+					<runtimeVersion>4.9.0</runtimeVersion>				 
 					<coverage>
 						<runCoverage>true</runCoverage>
 						<formats>
