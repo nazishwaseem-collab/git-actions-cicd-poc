@@ -126,8 +126,7 @@ jobs:
       - name: Run MUnit Tests
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID}
-          # mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
+          mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
       
       - name: Check MUnit Coverage
         run: |
@@ -564,22 +563,19 @@ jobs:
             echo "API_INSTANCE_ID=${API_INSTANCE_ID}" >> $GITHUB_ENV
           fi
 
-      - name: Update version for rollback and publish to Exchange
+      - name: Set rollback for rollback and publish to Exchange
         run: |
-          echo "Creating rollback version for Exchange..."
-          ARTIFACT_JAR=$(find target -type f -name "*.jar" | head -n 1)
-          if [ -z "$ARTIFACT_JAR" ]; then
-            echo "No artifact found to publish"
-            exit 1
-          fi
-          
-          # Create a unique rollback version
-          ROLLBACK_VERSION="${VERSION}-rollback-$(date +%s)"
+          # Extract base version (remove any existing build number suffix)
+          BASE_VERSION=$(echo "$VERSION" | sed 's/-[0-9]*$//')
+          # Use current build number for rollback version (same format as regular builds)
+          ROLLBACK_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           echo "ROLLBACK_VERSION=$ROLLBACK_VERSION" >> $GITHUB_ENV
-          echo "Publishing as ${GROUP_ID}:${ARTIFACT_ID}:${ROLLBACK_VERSION}"
+          echo "Using rollback version: $ROLLBACK_VERSION (format: version-buildnumber)"
           mvn -B versions:set -DnewVersion="${ROLLBACK_VERSION}" -DgenerateBackupPoms=false
-          
-          # Publish to Exchange
+
+      - name: Publish rollback version to Exchange
+        run: |
+          echo "Publishing rollback version ${ROLLBACK_VERSION} to Exchange..."
           mvn -B deploy -s .maven/settings.xml -P${TARGET_ENV} -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}"
 
       - name: Prepare CloudHub properties for autodiscovery
