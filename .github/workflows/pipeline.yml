@@ -126,7 +126,7 @@ jobs:
       - name: Run MUnit Tests
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-        # mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
+    # mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
           mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID}
 
       - name: Upload MUnit Reports
