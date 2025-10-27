@@ -18,14 +18,17 @@
 		<munit.version>3.4.0</munit.version>
 		<munit.coverage.threshold>30</munit.coverage.threshold>
 		
-		
-		<!-- Default values (will be overridden by profiles) -->
+		<!-- Default values - will be overridden by settings.xml profiles -->
 		<env>dev</env>
 		<app.name.prefix>bosdev</app.name.prefix>
 		<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
 		<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
 		<cloudhub.replicas>1</cloudhub.replicas>
 		<cloudhub.vcores>0.1</cloudhub.vcores>
+		<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+		<api.manager.path>/</api.manager.path>
+		<api.manager.scheme>https</api.manager.scheme>
+		<api.manager.port>443</api.manager.port>
 	</properties>
 
 	<build>
@@ -53,8 +56,8 @@
 						<releaseChannel>EDGE</releaseChannel>
 						<replicas>${cloudhub.replicas}</replicas>
 						<vCores>${cloudhub.vcores}</vCores>
-						<connectedAppClientId>${connected.app.clientId}</connectedAppClientId>
-						<connectedAppClientSecret>${connected.app.clientSecret}</connectedAppClientSecret>
+						<connectedAppClientId>${connected.app.client.id}</connectedAppClientId>
+						<connectedAppClientSecret>${connected.app.client.secret}</connectedAppClientSecret>
 						<skipDeploymentVerification>${skipDeploymentVerification}</skipDeploymentVerification>
 						<integrations>
 							<services>
@@ -169,74 +172,6 @@
 			<classifier>mule-plugin</classifier>
 		</dependency>
 	</dependencies>
-
-	<!-- ========================================== -->
-	<!--     ENVIRONMENT-SPECIFIC PROFILES          -->
-	<!-- ========================================== -->
-	<profiles>
-		<!-- DEV Profile -->
-		<profile>
-			<id>dev</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
-			<properties>
-				<env>dev</env>
-				<app.name.prefix>bosdev</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<!-- DEV-specific deployment config -->
-				<cloudhub.replicas>1</cloudhub.replicas>
-				<cloudhub.vcores>0.1</cloudhub.vcores>
-				<!-- API Manager properties -->
-				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
-				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
-				<api.manager.path>/</api.manager.path>
-				<api.manager.scheme>https</api.manager.scheme>
-				<api.manager.port>443</api.manager.port>
-			</properties>
-		</profile>
-
-		<!-- UAT Profile -->
-		<profile>
-			<id>uat</id>
-			<properties>
-				<env>uat</env>
-				<app.name.prefix>bosuat</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<!-- UAT-specific deployment config -->
-				<cloudhub.replicas>1</cloudhub.replicas>
-				<cloudhub.vcores>0.1</cloudhub.vcores>
-				<!-- API Manager properties -->
-				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
-				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
-				<api.manager.path>/</api.manager.path>
-				<api.manager.scheme>https</api.manager.scheme>
-				<api.manager.port>443</api.manager.port>
-			</properties>
-		</profile>
-
-		<!-- PROD Profile -->
-		<profile>
-			<id>prod</id>
-			<properties>
-				<env>prod</env>
-				<app.name.prefix>bos</app.name.prefix>
-				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
-				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-				<!-- PROD-specific deployment config - Higher resources -->
-				<cloudhub.replicas>1</cloudhub.replicas>
-				<cloudhub.vcores>0.1</cloudhub.vcores>
-				<!-- API Manager properties -->
-				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
-				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
-				<api.manager.path>/</api.manager.path>
-				<api.manager.scheme>https</api.manager.scheme>
-				<api.manager.port>443</api.manager.port>
-			</properties>
-		</profile>
-	</profiles>
 
 	<repositories>
 		<!-- Anypoint Exchange -->

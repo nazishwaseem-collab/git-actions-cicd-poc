@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" 
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
-
+  
   <pluginGroups>
     <pluginGroup>org.mule.tools</pluginGroup>
   </pluginGroups>
-
+  
   <servers>
     <!-- Auth for Anypoint Exchange dependency resolution -->
     <server>
@@ -14,21 +14,21 @@
       <username>~~~Client~~~</username>
       <password>${client.id}~?~${client.secret}</password>
     </server>
-
+    
     <!-- Auth for publishing to Exchange -->
     <server>
       <id>Repository</id>
       <username>~~~Client~~~</username>
       <password>${client.id}~?~${client.secret}</password>
     </server>
-
+    
     <!-- Nexus EE Releases -->
     <server>
       <id>nexus</id>
       <username>${env.NEXUS_USERNAME}</username>
       <password>${env.NEXUS_PASSWORD}</password>
     </server>
-
+    
     <!-- Nexus EE Snapshots -->
     <server>
       <id>nexus-snapshots</id>
@@ -36,8 +36,9 @@
       <password>${env.NEXUS_PASSWORD}</password>
     </server>
   </servers>
-
+  
   <profiles>
+    <!-- MuleSoft Repositories Profile -->
     <profile>
       <id>mulesoft</id>
       <repositories>
@@ -58,7 +59,6 @@
           <url>https://repository.mulesoft.org/nexus-ee/content/repositories/snapshots-ee</url>
         </repository>
       </repositories>
-
       <pluginRepositories>
         <pluginRepository>
           <id>mulesoft-releases</id>
@@ -70,10 +70,70 @@
         </pluginRepository>
       </pluginRepositories>
     </profile>
+    
+    <!-- ========================================== -->
+    <!--     ENVIRONMENT-SPECIFIC PROFILES          -->
+    <!-- ========================================== -->
+    
+    <!-- DEV Profile -->
+    <profile>
+      <id>dev</id>
+      <properties>
+        <env>dev</env>
+        <app.name.prefix>bosdev</app.name.prefix>
+        <cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+        <cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+        <!-- DEV-specific deployment config -->
+        <cloudhub.replicas>1</cloudhub.replicas>
+        <cloudhub.vcores>0.1</cloudhub.vcores>
+        <!-- API Manager properties -->
+        <api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+        <api.manager.path>/</api.manager.path>
+        <api.manager.scheme>https</api.manager.scheme>
+        <api.manager.port>443</api.manager.port>
+      </properties>
+    </profile>
+    
+    <!-- UAT Profile -->
+    <profile>
+      <id>uat</id>
+      <properties>
+        <env>uat</env>
+        <app.name.prefix>bosuat</app.name.prefix>
+        <cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+        <cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+        <!-- UAT-specific deployment config -->
+        <cloudhub.replicas>1</cloudhub.replicas>
+        <cloudhub.vcores>0.1</cloudhub.vcores>
+        <!-- API Manager properties -->
+        <api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+        <api.manager.path>/</api.manager.path>
+        <api.manager.scheme>https</api.manager.scheme>
+        <api.manager.port>443</api.manager.port>
+      </properties>
+    </profile>
+    
+    <!-- PROD Profile -->
+    <profile>
+      <id>prod</id>
+      <properties>
+        <env>prod</env>
+        <app.name.prefix>bos</app.name.prefix>
+        <cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
+        <cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+        <!-- PROD-specific deployment config - Higher resources -->
+        <cloudhub.replicas>1</cloudhub.replicas>
+        <cloudhub.vcores>0.1</cloudhub.vcores>
+        <!-- API Manager properties -->
+        <api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
+        <api.manager.path>/</api.manager.path>
+        <api.manager.scheme>https</api.manager.scheme>
+        <api.manager.port>443</api.manager.port>
+      </properties>
+    </profile>
   </profiles>
-
+  
   <activeProfiles>
     <activeProfile>mulesoft</activeProfile>
   </activeProfiles>
-
 </settings>
