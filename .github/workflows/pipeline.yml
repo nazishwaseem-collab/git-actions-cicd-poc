@@ -126,7 +126,7 @@ jobs:
       - name: Run MUnit Tests
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
+          mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
       
       - name: Check MUnit Coverage
         run: |
@@ -134,14 +134,39 @@ jobs:
           THRESHOLD=$(mvn help:evaluate -Dexpression=munit.coverage.threshold -q -DforceStdout -P${TARGET_ENV})
           echo "Checking MUnit coverage threshold (minimum ${THRESHOLD}%)..."
           
-          # Check if coverage report exists
-          if [ ! -f "target/site/munit/coverage/munit-coverage.json" ]; then
-            echo "Error: MUnit coverage report not found!"
+          # MUnit generates coverage reports in different locations depending on version
+          # Possible locations: target/site/munit/coverage/, target/munit-reports/, target/surefire-reports/
+          COVERAGE_FILE=""
+          
+          if [ -f "target/site/munit/coverage/munit-coverage.json" ]; then
+            COVERAGE_FILE="target/site/munit/coverage/munit-coverage.json"
+          elif [ -f "target/munit-reports/coverage/munit-coverage.json" ]; then
+            COVERAGE_FILE="target/munit-reports/coverage/munit-coverage.json"
+          elif [ -f "target/munit/coverage/munit-coverage.json" ]; then
+            COVERAGE_FILE="target/munit/coverage/munit-coverage.json"
+          else
+            echo "Error: MUnit coverage report not found in expected locations!"
+            echo "Searching for coverage JSON files..."
+            find target -name "munit-coverage.json" -o -name "*coverage*.json" | head -5
+            echo ""
+            echo "Directory structure:"
+            ls -la target/ 2>/dev/null || true
+            ls -la target/munit-reports/ 2>/dev/null || true
+            ls -la target/site/munit/ 2>/dev/null || true
             exit 1
           fi
           
+          echo "Found coverage report at: $COVERAGE_FILE"
+          
           # Extract coverage percentage from JSON report
-          COVERAGE=$(cat target/site/munit/coverage/munit-coverage.json | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
+          COVERAGE=$(cat "$COVERAGE_FILE" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
+          
+          if [ -z "$COVERAGE" ]; then
+            echo "Error: Could not extract coverage percentage from report"
+            echo "Report content:"
+            cat "$COVERAGE_FILE"
+            exit 1
+          fi
           
           echo "Current MUnit Coverage: ${COVERAGE}%"
           
