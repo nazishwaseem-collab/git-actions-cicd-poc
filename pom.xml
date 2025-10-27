@@ -25,6 +25,7 @@
 		<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
 		<cloudhub.replicas>1</cloudhub.replicas>
 		<cloudhub.vcores>0.1</cloudhub.vcores>
+		<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
 		<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
 		<api.manager.path>/</api.manager.path>
 		<api.manager.scheme>https</api.manager.scheme>

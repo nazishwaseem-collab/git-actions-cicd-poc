@@ -87,6 +87,7 @@
         <cloudhub.replicas>1</cloudhub.replicas>
         <cloudhub.vcores>0.1</cloudhub.vcores>
         <!-- API Manager properties -->
+		<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
         <api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
         <api.manager.path>/</api.manager.path>
         <api.manager.scheme>https</api.manager.scheme>
@@ -106,6 +107,7 @@
         <cloudhub.replicas>1</cloudhub.replicas>
         <cloudhub.vcores>0.1</cloudhub.vcores>
         <!-- API Manager properties -->
+		<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
         <api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
         <api.manager.path>/</api.manager.path>
         <api.manager.scheme>https</api.manager.scheme>
@@ -121,10 +123,11 @@
         <app.name.prefix>bos</app.name.prefix>
         <cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
         <cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
-        <!-- PROD-specific deployment config - Higher resources -->
+        <!-- PROD-specific deployment config -->
         <cloudhub.replicas>1</cloudhub.replicas>
         <cloudhub.vcores>0.1</cloudhub.vcores>
         <!-- API Manager properties -->
+		<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
         <api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
         <api.manager.path>/</api.manager.path>
         <api.manager.scheme>https</api.manager.scheme>
