@@ -124,25 +124,101 @@ jobs:
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
       - name: Run MUnit Tests
+        id: munit_test
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dmunit.failIfNoTests=false
+          # Capture MUnit output to extract coverage
+          mvn -B test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" 2>&1 | tee munit-output.log
+          
+          # Extract coverage from Maven output
+          COVERAGE_FROM_LOG=$(grep "Application Coverage:" munit-output.log | grep -oP '\d+\.\d+(?=%)' | tail -1 || echo "")
+          echo "COVERAGE_FROM_LOG=${COVERAGE_FROM_LOG}" >> $GITHUB_ENV
+          echo "Coverage extracted from logs: ${COVERAGE_FROM_LOG}%"
+
+      - name: Check MUnit Coverage
+        run: |
+          # Extract coverage threshold from POM
+          THRESHOLD=$(mvn help:evaluate -Dexpression=munit.coverage.threshold -q -DforceStdout -P${TARGET_ENV})
+          echo "Checking MUnit coverage threshold (minimum ${THRESHOLD}%)..."
+          
+          # Try to get coverage from different sources
+          COVERAGE=""
+          
+          # First, try from the test output (most reliable)
+          if [ -n "${{ env.COVERAGE_FROM_LOG }}" ]; then
+            COVERAGE="${{ env.COVERAGE_FROM_LOG }}"
+            echo "Using coverage from Maven output: ${COVERAGE}%"
+          # Try JSON format locations
+          elif [ -f "target/site/munit/coverage/munit-coverage.json" ]; then
+            echo "Found JSON coverage report at: target/site/munit/coverage/munit-coverage.json"
+            COVERAGE=$(cat "target/site/munit/coverage/munit-coverage.json" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
+          elif [ -f "target/munit-reports/coverage/munit-coverage.json" ]; then
+            echo "Found JSON coverage report at: target/munit-reports/coverage/munit-coverage.json"
+            COVERAGE=$(cat "target/munit-reports/coverage/munit-coverage.json" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
+          elif [ -f "target/munit/coverage/munit-coverage.json" ]; then
+            echo "Found JSON coverage report at: target/munit/coverage/munit-coverage.json"
+            COVERAGE=$(cat "target/munit/coverage/munit-coverage.json" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
+          # Try data file format
+          elif [ -f "target/munit-reports/coverage-report.data" ]; then
+            echo "Found data coverage report at: target/munit-reports/coverage-report.data"
+            # Extract coverage from .data file
+            COVERAGE=$(cat "target/munit-reports/coverage-report.data" | grep -oP '"coverage":\K[0-9.]+' | head -1 || echo "")
+            if [ -z "$COVERAGE" ]; then
+              # Try alternative patterns
+              COVERAGE=$(cat "target/munit-reports/coverage-report.data" | grep -oP 'coverage["\s:]*\K[0-9.]+' | head -1 || echo "")
+            fi
+          elif [ -f "target/surefire-reports/munit-coverage.json" ]; then
+            echo "Found JSON coverage report at: target/surefire-reports/munit-coverage.json"
+            COVERAGE=$(cat "target/surefire-reports/munit-coverage.json" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
+          fi
+          
+          if [ -z "$COVERAGE" ]; then
+            echo "Error: Could not extract coverage percentage"
+            echo "Searched locations:"
+            echo "- Maven output logs"
+            echo "- target/site/munit/coverage/"
+            echo "- target/munit-reports/"
+            echo "- target/munit/"
+            echo ""
+            echo "Available files:"
+            find target -name "*coverage*" -type f 2>/dev/null | head -10
+            echo ""
+            echo "MUnit reports directory content:"
+            ls -la target/munit-reports/ 2>/dev/null || echo "Directory not found"
+            exit 1
+          fi
+          
+          echo "Current MUnit Coverage: ${COVERAGE}%"
+          
+          # Compare coverage with minimum threshold
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "MUnit coverage (${COVERAGE}%) is below the minimum threshold of ${THRESHOLD}%"
+            echo "Please add more tests to meet the coverage requirement."
+            exit 1
+          else
+            echo "MUnit coverage (${COVERAGE}%) meets the minimum threshold of ${THRESHOLD}%"
+          fi
 
       - name: Upload MUnit Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: munit-reports
-          path: target/site/munit/coverage/
+          path: |
+            target/site/munit/coverage/
+            target/munit-reports/
+            target/munit/
+            target/sonar-reports/
           if-no-files-found: warn
 
-      - name: Upload Munits Reports
+      - name: Upload Surefire Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: munits-reports
-          path: target/munits-reports/
+          name: surefire-reports
+          path: target/surefire-reports/
           if-no-files-found: warn
+
 
   upload:
     needs: [build, test]
@@ -404,7 +480,6 @@ jobs:
           echo "Deploying ${APP_NAME} to ${TARGET_ENV} environment with API ID ${API_INSTANCE_ID}"
           echo "mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}"  -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt"
           mvn -B mule:deploy -s .maven/settings.xml -P${TARGET_ENV} -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}" -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt    
-        #  mvn -B mule:deploy -s .maven/settings.xml -DmuleDeploy -DskipMunitTests -Danypoint.organization=${{ secrets.ORG_ID }} -Denv=${{ env.TARGET_ENV }} -Dclient.id="${{ secrets.CONNECTED_APP_CLIENT_ID }}" -Dclient.secret="${{ secrets.CONNECTED_APP_CLIENT_SECRET }}" -Danypoint.platform.client.id="${{ secrets.ANYPOINT_PLATFORM__CLIENT_ID }}"  -Danypoint.platform.client.secret="${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}"  -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" -Dapp.name="${APP_NAME}" -Dcloudhub2.environment="${TARGET_ENV}" -Dapi.id="${API_INSTANCE_ID}" -Dcloudhub2.applicationPropertiesFile=cloudhub-properties.txt
 
       - name: Tag successful deployment
         if: success()
@@ -537,22 +612,19 @@ jobs:
             echo "API_INSTANCE_ID=${API_INSTANCE_ID}" >> $GITHUB_ENV
           fi
 
-      - name: Update version for rollback and publish to Exchange
+      - name: Set rollback for rollback and publish to Exchange
         run: |
-          echo "Creating rollback version for Exchange..."
-          ARTIFACT_JAR=$(find target -type f -name "*.jar" | head -n 1)
-          if [ -z "$ARTIFACT_JAR" ]; then
-            echo "No artifact found to publish"
-            exit 1
-          fi
-          
-          # Create a unique rollback version
-          ROLLBACK_VERSION="${VERSION}-rollback-$(date +%s)"
+          # Extract base version (remove any existing build number suffix)
+          BASE_VERSION=$(echo "$VERSION" | sed 's/-[0-9]*$//')
+          # Use current build number for rollback version (same format as regular builds)
+          ROLLBACK_VERSION="${BASE_VERSION}-${GITHUB_RUN_NUMBER}"
           echo "ROLLBACK_VERSION=$ROLLBACK_VERSION" >> $GITHUB_ENV
-          echo "Publishing as ${GROUP_ID}:${ARTIFACT_ID}:${ROLLBACK_VERSION}"
+          echo "Using rollback version: $ROLLBACK_VERSION (format: version-buildnumber)"
           mvn -B versions:set -DnewVersion="${ROLLBACK_VERSION}" -DgenerateBackupPoms=false
-          
-          # Publish to Exchange
+
+      - name: Publish rollback version to Exchange
+        run: |
+          echo "Publishing rollback version ${ROLLBACK_VERSION} to Exchange..."
           mvn -B deploy -s .maven/settings.xml -P${TARGET_ENV} -DskipMunitTests -Danypoint.organization="${ANYPOINT_ORG}" -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}"
 
       - name: Prepare CloudHub properties for autodiscovery
