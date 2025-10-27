@@ -16,12 +16,16 @@
 		<app.runtime>4.9.0</app.runtime>
 		<mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
 		<munit.version>3.4.0</munit.version>
+		<munit.coverage.threshold>30</munit.coverage.threshold>
+		
 		
 		<!-- Default values (will be overridden by profiles) -->
 		<env>dev</env>
 		<app.name.prefix>bosdev</app.name.prefix>
 		<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
 		<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+		<cloudhub.replicas>1</cloudhub.replicas>
+		<cloudhub.vcores>0.1</cloudhub.vcores>
 	</properties>
 
 	<build>
@@ -47,8 +51,8 @@
 						<!-- Dynamic app name constructed from profile prefix + artifactId -->
 						<applicationName>${app.name.prefix}-${project.artifactId}</applicationName>
 						<releaseChannel>EDGE</releaseChannel>
-						<replicas>1</replicas>
-						<vCores>0.1</vCores>
+						<replicas>${cloudhub.replicas}</replicas>
+						<vCores>${cloudhub.vcores}</vCores>
 						<connectedAppClientId>${connected.app.clientId}</connectedAppClientId>
 						<connectedAppClientSecret>${connected.app.clientSecret}</connectedAppClientSecret>
 						<skipDeploymentVerification>${skipDeploymentVerification}</skipDeploymentVerification>
@@ -92,6 +96,8 @@
 					<runtimeVersion>${app.runtime}</runtimeVersion>				 
 					<coverage>
 						<runCoverage>true</runCoverage>
+						<failBuild>true</failBuild>
+						<requiredApplicationCoverage>${munit.coverage.threshold}</requiredApplicationCoverage>
 						<formats>
 							<format>html</format>
 							<format>json</format>
@@ -179,6 +185,10 @@
 				<app.name.prefix>bosdev</app.name.prefix>
 				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
 				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<!-- DEV-specific deployment config -->
+				<cloudhub.replicas>1</cloudhub.replicas>
+				<cloudhub.vcores>0.1</cloudhub.vcores>
+				<!-- API Manager properties -->
 				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
 				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
 				<api.manager.path>/</api.manager.path>
@@ -195,6 +205,10 @@
 				<app.name.prefix>bosuat</app.name.prefix>
 				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
 				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<!-- UAT-specific deployment config -->
+				<cloudhub.replicas>1</cloudhub.replicas>
+				<cloudhub.vcores>0.2</cloudhub.vcores>
+				<!-- API Manager properties -->
 				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
 				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
 				<api.manager.path>/</api.manager.path>
@@ -211,6 +225,10 @@
 				<app.name.prefix>bos</app.name.prefix>
 				<cloudhub.region>Cloudhub-US-East-2</cloudhub.region>
 				<cloudhub.domain.suffix>us-e1.cloudhub.io</cloudhub.domain.suffix>
+				<!-- PROD-specific deployment config - Higher resources -->
+				<cloudhub.replicas>2</cloudhub.replicas>
+				<cloudhub.vcores>0.5</cloudhub.vcores>
+				<!-- API Manager properties -->
 				<api.manager.endpoint.uri>https://${app.name.prefix}-${project.artifactId}.${cloudhub.domain.suffix}</api.manager.endpoint.uri>
 				<api.manager.deployment.type>cloudhub2</api.manager.deployment.type>
 				<api.manager.path>/</api.manager.path>
