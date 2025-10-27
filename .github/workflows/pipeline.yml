@@ -124,47 +124,67 @@ jobs:
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
       - name: Run MUnit Tests
+        id: munit_test
         run: |
           echo "Running MUnit tests for environment ${TARGET_ENV}"
-          mvn -B clean test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}"
-      
+          # Capture MUnit output to extract coverage
+          mvn -B test -s .maven/settings.xml -P${TARGET_ENV} -Danypoint.organization=${ORG_ID} -Dclient.id="${ANYPOINT_CLIENT_ID}" -Dclient.secret="${ANYPOINT_CLIENT_SECRET}" -Dnexus.username="${NEXUS_USERNAME}" -Dnexus.password="${NEXUS_PASSWORD}" -Ddecryption.key="${{ secrets.DECRYPTION_KEY }}" 2>&1 | tee munit-output.log
+          
+          # Extract coverage from Maven output
+          COVERAGE_FROM_LOG=$(grep "Application Coverage:" munit-output.log | grep -oP '\d+\.\d+(?=%)' | tail -1 || echo "")
+          echo "COVERAGE_FROM_LOG=${COVERAGE_FROM_LOG}" >> $GITHUB_ENV
+          echo "Coverage extracted from logs: ${COVERAGE_FROM_LOG}%"
+
       - name: Check MUnit Coverage
         run: |
           # Extract coverage threshold from POM
           THRESHOLD=$(mvn help:evaluate -Dexpression=munit.coverage.threshold -q -DforceStdout -P${TARGET_ENV})
           echo "Checking MUnit coverage threshold (minimum ${THRESHOLD}%)..."
           
-          # MUnit generates coverage reports in different locations depending on version
-          # Possible locations: target/site/munit/coverage/, target/munit-reports/, target/surefire-reports/
-          COVERAGE_FILE=""
+          # Try to get coverage from different sources
+          COVERAGE=""
           
-          if [ -f "target/site/munit/coverage/munit-coverage.json" ]; then
-            COVERAGE_FILE="target/site/munit/coverage/munit-coverage.json"
+          # First, try from the test output (most reliable)
+          if [ -n "${{ env.COVERAGE_FROM_LOG }}" ]; then
+            COVERAGE="${{ env.COVERAGE_FROM_LOG }}"
+            echo "Using coverage from Maven output: ${COVERAGE}%"
+          # Try JSON format locations
+          elif [ -f "target/site/munit/coverage/munit-coverage.json" ]; then
+            echo "Found JSON coverage report at: target/site/munit/coverage/munit-coverage.json"
+            COVERAGE=$(cat "target/site/munit/coverage/munit-coverage.json" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
           elif [ -f "target/munit-reports/coverage/munit-coverage.json" ]; then
-            COVERAGE_FILE="target/munit-reports/coverage/munit-coverage.json"
+            echo "Found JSON coverage report at: target/munit-reports/coverage/munit-coverage.json"
+            COVERAGE=$(cat "target/munit-reports/coverage/munit-coverage.json" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
           elif [ -f "target/munit/coverage/munit-coverage.json" ]; then
-            COVERAGE_FILE="target/munit/coverage/munit-coverage.json"
-          else
-            echo "Error: MUnit coverage report not found in expected locations!"
-            echo "Searching for coverage JSON files..."
-            find target -name "munit-coverage.json" -o -name "*coverage*.json" | head -5
-            echo ""
-            echo "Directory structure:"
-            ls -la target/ 2>/dev/null || true
-            ls -la target/munit-reports/ 2>/dev/null || true
-            ls -la target/site/munit/ 2>/dev/null || true
-            exit 1
+            echo "Found JSON coverage report at: target/munit/coverage/munit-coverage.json"
+            COVERAGE=$(cat "target/munit/coverage/munit-coverage.json" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
+          # Try data file format
+          elif [ -f "target/munit-reports/coverage-report.data" ]; then
+            echo "Found data coverage report at: target/munit-reports/coverage-report.data"
+            # Extract coverage from .data file
+            COVERAGE=$(cat "target/munit-reports/coverage-report.data" | grep -oP '"coverage":\K[0-9.]+' | head -1 || echo "")
+            if [ -z "$COVERAGE" ]; then
+              # Try alternative patterns
+              COVERAGE=$(cat "target/munit-reports/coverage-report.data" | grep -oP 'coverage["\s:]*\K[0-9.]+' | head -1 || echo "")
+            fi
+          elif [ -f "target/surefire-reports/munit-coverage.json" ]; then
+            echo "Found JSON coverage report at: target/surefire-reports/munit-coverage.json"
+            COVERAGE=$(cat "target/surefire-reports/munit-coverage.json" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
           fi
           
-          echo "Found coverage report at: $COVERAGE_FILE"
-          
-          # Extract coverage percentage from JSON report
-          COVERAGE=$(cat "$COVERAGE_FILE" | grep -o '"coverage":[0-9.]*' | head -1 | cut -d':' -f2)
-          
           if [ -z "$COVERAGE" ]; then
-            echo "Error: Could not extract coverage percentage from report"
-            echo "Report content:"
-            cat "$COVERAGE_FILE"
+            echo "Error: Could not extract coverage percentage"
+            echo "Searched locations:"
+            echo "- Maven output logs"
+            echo "- target/site/munit/coverage/"
+            echo "- target/munit-reports/"
+            echo "- target/munit/"
+            echo ""
+            echo "Available files:"
+            find target -name "*coverage*" -type f 2>/dev/null | head -10
+            echo ""
+            echo "MUnit reports directory content:"
+            ls -la target/munit-reports/ 2>/dev/null || echo "Directory not found"
             exit 1
           fi
           
@@ -178,23 +198,6 @@ jobs:
           else
             echo "MUnit coverage (${COVERAGE}%) meets the minimum threshold of ${THRESHOLD}%"
           fi
-
-      - name: Upload MUnit Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: munit-reports
-          path: target/site/munit/coverage/
-          if-no-files-found: warn
-
-      - name: Upload Munits Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: munits-reports
-          path: target/munits-reports/
-          if-no-files-found: warn
-
   upload:
     needs: [build, test]
     if: |
