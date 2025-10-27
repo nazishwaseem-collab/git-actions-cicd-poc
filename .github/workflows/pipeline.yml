@@ -198,6 +198,28 @@ jobs:
           else
             echo "MUnit coverage (${COVERAGE}%) meets the minimum threshold of ${THRESHOLD}%"
           fi
+
+      - name: Upload MUnit Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: munit-reports
+          path: |
+            target/site/munit/coverage/
+            target/munit-reports/
+            target/munit/
+            target/sonar-reports/
+          if-no-files-found: warn
+
+      - name: Upload Surefire Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: warn
+
+
   upload:
     needs: [build, test]
     if: |
